@@ -1,0 +1,14 @@
+REACH Climate-Health EWS
+Final GitHub / Streamlit release
+Date: 2026-09-30
+
+Fixes included:
+- imported Python regular-expression module `re` for TX90/TX95/TX99 and P90/P95/P99 verification parsing
+- uses `BytesIO()` consistently for downloadable ZIP creation
+- preserves the full comprehensive dashboard content and verification suite
+
+Seasonal visualisation revision:
+- restored ENSO La Niña / Neutral / El Niño probability bars
+- added central-month labels and downloadable probability table
+- added selectable anomaly bar plot and spatial anomaly map
+- added temperature- and precipitation-anomaly downloads
