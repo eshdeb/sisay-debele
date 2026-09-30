@@ -74,11 +74,17 @@ expected_text = [
     "3-day precipitation > P95",
     "3-day precipitation > P99",
     "Downloads · CSV / Stella",
-    "ENSO outlook · El Niño / Neutral / La Niña",
-    "Bar plot of anomalies",
-    "Spatial anomaly map",
+    "ENSO outlook · phase, strength and RONI anomaly",
+    "Bar plot",
+    "Spatial anomaly outlook",
     "Temperature anomaly",
     "Precipitation anomaly",
+    "Temporal + spatial",
+    "Satellite + streets",
+    "ENSO strength probabilities",
+    "RONI anomaly outlook",
+    "Filled anomaly time series",
+    "horizontal_colorbar",
 ]
 for text in expected_text:
     if text not in source:

@@ -76,3 +76,20 @@ The Climate drivers tab now includes:
 - CSV download for ENSO, focus-area anomaly series and spatial anomaly values
 
 The spatial anomaly map uses district/municipality shading rather than interpolating a false smooth surface between administrative centroids.
+
+
+## Final spatial + temporal visualisation upgrade
+
+- selectable Streets/places, OpenStreetMap, clean light, terrain/outdoors, satellite and satellite+streets basemaps
+- adjustable forecast-layer opacity
+- contextual MapLibre spatial forecast maps
+- horizontal map colour scales
+- calendar month labels in the seasonal valid-period selector
+- combined Temporal + spatial anomaly view
+- filled anomaly time series or bar-plot temporal style
+- temperature and precipitation anomaly maps linked to the same selected period
+- NOAA CPC ENSO phase probabilities
+- NOAA CPC ENSO strength probabilities
+- filled RONI anomaly outlook with strength thresholds and uncertainty
+
+Basemap changes affect only visual context; forecast values and calculations are unchanged.

@@ -12,3 +12,12 @@ Seasonal visualisation revision:
 - added central-month labels and downloadable probability table
 - added selectable anomaly bar plot and spatial anomaly map
 - added temperature- and precipitation-anomaly downloads
+
+Final spatiotemporal/basemap revision:
+- contextual selectable MapLibre basemaps + opacity
+- horizontal map colour bars
+- calendar month labels in seasonal valid-period selector
+- combined temporal + spatial anomaly panel
+- filled anomaly time series + optional bars
+- NOAA CPC ENSO strength probability plot
+- NOAA CPC RONI filled anomaly outlook

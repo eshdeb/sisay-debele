@@ -17,7 +17,8 @@ V5.0 restores/preserves the V4.4 + V4.5 functionality and adds:
 - Exact valid start/end windows and focus-event timing.
 - ENSO/RONI, IOD/DMI for Zambia, and Tropical Atlantic SST-gradient context for Brazil.
 - ENSO phase-probability bars with 3-month outlook values and dominant phase.
-- Selectable seasonal anomaly visualisation: focus-area bar plot or spatial anomaly map.
+- Linked temporal + spatial seasonal anomaly visualisation with filled/bar temporal views and contextual basemaps.
+- Official NOAA CPC ENSO phase, strength and RONI anomaly outlook visualisations.
 - Source portal with direct hyperlinks.
 - Transparent decision-maker summary plus optional local Ollama rewrite.
 - Pilot-site two-model historical verification: ECMWF IFS vs NOAA GFS against ERA5.
@@ -108,6 +109,8 @@ SINGLE_RUNS_URL = "https://single-runs-api.open-meteo.com/v1/forecast"
 FLOOD_URL = "https://flood-api.open-meteo.com/v1/flood"
 
 CPC_ENSO_URL = "https://www.cpc.ncep.noaa.gov/products/analysis_monitoring/enso/roni/probabilities/"
+CPC_ENSO_STRENGTH_URL = "https://www.cpc.ncep.noaa.gov/products/analysis_monitoring/enso/roni/strengths.php"
+CPC_ENSO_OUTLOOK_URL = "https://www.cpc.ncep.noaa.gov/products/analysis_monitoring/enso/roni/outlook/"
 DMI_CSV = "https://psl.noaa.gov/data/timeseries/month/data/dmi.had.long.csv"
 DMI_WEB = "https://psl.noaa.gov/data/timeseries/month/DMI/"
 TNA_CSV = "https://psl.noaa.gov/data/correlation/tna.csv"
@@ -321,6 +324,26 @@ def period_options(horizon):
     return ["Month 1","Month 2","Month 3","Month 4","Month 5","Month 6","Month 7","Months 1–3","Months 4–7"]
 
 
+def period_display_label(horizon, period):
+    """User-facing calendar label; the internal period key remains unchanged."""
+    if horizon != "Seasonal":
+        return period
+    base_month = pd.Timestamp.now(tz="UTC").tz_localize(None).normalize().replace(day=1)
+    if period.startswith("Month "):
+        n = int(period.split()[-1])
+        d = base_month + pd.DateOffset(months=n-1)
+        return f"{period} · {d.strftime('%B %Y')}"
+    if period == "Months 1–3":
+        d1 = base_month
+        d2 = base_month + pd.DateOffset(months=2)
+        return f"{period} · {d1.strftime('%b')}–{d2.strftime('%b %Y')}"
+    if period == "Months 4–7":
+        d1 = base_month + pd.DateOffset(months=3)
+        d2 = base_month + pd.DateOffset(months=6)
+        return f"{period} · {d1.strftime('%b')}–{d2.strftime('%b %Y')}"
+    return period
+
+
 def daily_slice(horizon,period):
     if horizon=="Short range": return 0,3
     return {"Days 4–7":(3,7),"Days 8–15":(7,15),"Full days 4–15":(3,15)}[period]
@@ -364,6 +387,40 @@ def map_modes(hazard,horizon):
     if horizon in ("Short range","Medium range"):
         return ["Physical magnitude","Probabilistic risk classes"]
     return ["Physical anomaly","Risk-class screening"]
+
+
+BASEMAP_STYLES = {
+    "Streets / places": "carto-voyager",
+    "OpenStreetMap": "open-street-map",
+    "Clean light": "carto-positron",
+    "Terrain / outdoors": "outdoors",
+    "Satellite": "satellite",
+    "Satellite + streets": "satellite-streets",
+}
+
+
+def map_view_from_df(df):
+    lat = pd.to_numeric(df.get("rep_lat", pd.Series(dtype=float)), errors="coerce").dropna()
+    lon = pd.to_numeric(df.get("rep_lon", pd.Series(dtype=float)), errors="coerce").dropna()
+    if not len(lat) or not len(lon):
+        return {"lat": -13.5, "lon": 28.0}, 4.0
+    centre = {"lat": float(lat.median()), "lon": float(lon.median())}
+    span = max(float(lat.max()-lat.min()), float(lon.max()-lon.min()), 0.25)
+    zoom = float(np.clip(7.7 - np.log2(span), 2.7, 8.5))
+    return centre, zoom
+
+
+def horizontal_colorbar(title, tickvals=None, ticktext=None):
+    return dict(
+        title=dict(text=title, side="top"),
+        orientation="h",
+        x=0.5, xanchor="center",
+        y=-0.08, yanchor="top",
+        len=0.58,
+        thickness=14,
+        tickvals=tickvals,
+        ticktext=ticktext,
+    )
 
 
 def unit_for(hazard,horizon,map_mode):
@@ -644,7 +701,10 @@ def map_value_label(hazard, horizon, map_mode):
     return "Forecast value"
 
 
-def map_figure(geo, map_df, hazard, horizon, map_mode, focus, period, source_label):
+def map_figure(
+    geo, map_df, hazard, horizon, map_mode, focus, period, source_label,
+    basemap_name="Streets / places", layer_opacity=0.64
+):
     df = map_df.copy()
     df["REGION_CODE"] = df["REGION_CODE"].astype(str)
     unit = unit_for(hazard, horizon, map_mode)
@@ -679,7 +739,18 @@ def map_figure(geo, map_df, hazard, horizon, map_mode, focus, period, source_lab
         if anomaly:
             lim = max(.1, float(np.nanquantile(np.abs(vals), .98))) if len(vals) else 1.0
             zmin, zmax = -lim, lim
-            colorscale = "RdBu_r" if hazard == "Heatwave" else "BrBG"
+            if hazard == "Heatwave":
+                colorscale = [
+                    [0.00,"#1D4ED8"], [0.18,"#0EA5E9"], [0.36,"#22D3EE"],
+                    [0.50,"#F8FAFC"],
+                    [0.64,"#FDE047"], [0.82,"#F97316"], [1.00,"#DC2626"],
+                ]
+            else:
+                colorscale = [
+                    [0.00,"#9A3412"], [0.20,"#EA580C"], [0.38,"#FDBA74"],
+                    [0.50,"#F8FAFC"],
+                    [0.62,"#A5F3FC"], [0.80,"#0EA5E9"], [1.00,"#1D4ED8"],
+                ]
         else:
             zmin = float(vals.quantile(.02)) if len(vals) else 0.0
             zmax = float(vals.quantile(.98)) if len(vals) else 1.0
@@ -691,8 +762,7 @@ def map_figure(geo, map_df, hazard, horizon, map_mode, focus, period, source_lab
         colorbar_title = unit
 
     def value_string(v):
-        if not np.isfinite(v):
-            return "Data unavailable"
+        if not np.isfinite(v): return "Data unavailable"
         if unit == "%": return f"{v:.1f}%"
         if unit == "°C": return f"{v:.1f} °C"
         if unit == "mm": return f"{v:.1f} mm"
@@ -701,7 +771,7 @@ def map_figure(geo, map_df, hazard, horizon, map_mode, focus, period, source_lab
 
     df["VALUE_DISPLAY"] = [value_string(v) for v in pd.to_numeric(df["value"], errors="coerce")]
     df["SOURCE_DISPLAY"] = source_label
-    df["HORIZON_DISPLAY"] = f"{horizon} · {period}"
+    df["HORIZON_DISPLAY"] = f"{horizon} · {period_display_label(horizon,period)}"
 
     custom = np.stack([
         df["REGION_NAME"].astype(str),
@@ -712,19 +782,18 @@ def map_figure(geo, map_df, hazard, horizon, map_mode, focus, period, source_lab
         df["SOURCE_DISPLAY"].astype(str),
     ], axis=1)
 
-    fig = go.Figure(go.Choropleth(
+    fig = go.Figure(go.Choroplethmap(
         geojson=geo,
         locations=df["REGION_CODE"],
         z=df["value"],
         featureidkey="properties.REGION_CODE",
         colorscale=colorscale,
         zmin=zmin, zmax=zmax,
-        marker_line_width=.45,
-        marker_line_color="rgba(255,255,255,.80)",
-        colorbar=dict(
-            title=colorbar_title, thickness=16, len=.76,
-            tickvals=tickvals, ticktext=ticktext,
+        marker=dict(
+            opacity=float(layer_opacity),
+            line=dict(width=.7, color="rgba(255,255,255,.88)")
         ),
+        colorbar=horizontal_colorbar(colorbar_title,tickvals=tickvals,ticktext=ticktext),
         customdata=custom,
         hovertemplate=(
             "<b>%{customdata[0]}</b><br>"
@@ -732,20 +801,19 @@ def map_figure(geo, map_df, hazard, horizon, map_mode, focus, period, source_lab
             + value_label + ": <b>%{customdata[2]}</b><br>"
             "Risk class: %{customdata[3]}<br>"
             "Window: %{customdata[4]}<br>"
-            "Source: %{customdata[5]}"
-            "<extra></extra>"
+            "Source: %{customdata[5]}<extra></extra>"
         ),
     ))
 
     focus_row = df[df["REGION_NAME"] == focus]
     if len(focus_row):
         r = focus_row.iloc[0]
-        fig.add_trace(go.Scattergeo(
+        fig.add_trace(go.Scattermap(
             lon=[float(r["rep_lon"])], lat=[float(r["rep_lat"])],
             mode="markers+text", text=[focus], textposition="top center",
-            marker=dict(size=8, color="#111827", line=dict(width=1, color="white")),
+            marker=dict(size=10,color="#111827"),
             name="Focus area",
-            customdata=[[r["VALUE_DISPLAY"], r["RISK_CLASS"]]],
+            customdata=[[r["VALUE_DISPLAY"],r["RISK_CLASS"]]],
             hovertemplate=(
                 f"<b>{focus}</b><br>"
                 + value_label + ": <b>%{customdata[0]}</b><br>"
@@ -753,17 +821,17 @@ def map_figure(geo, map_df, hazard, horizon, map_mode, focus, period, source_lab
             ),
         ))
 
-    fig.update_geos(
-        fitbounds="locations", visible=False, projection_type="mercator",
-        showcountries=False, showcoastlines=False, showland=False,
-        bgcolor="rgba(0,0,0,0)"
-    )
+    centre,zoom=map_view_from_df(df)
     fig.update_layout(
+        map=dict(
+            style=BASEMAP_STYLES.get(basemap_name,"carto-voyager"),
+            center=centre,zoom=zoom
+        ),
         height=720,
-        margin=dict(l=0,r=0,t=45,b=0),
-        title=dict(text=f"{hazard} · {horizon} · {map_mode}", x=.01, xanchor="left", font=dict(size=16)),
-        hoverlabel=dict(bgcolor="white", font_size=13, font_family="Arial"),
-        legend=dict(orientation="h", y=-.02),
+        margin=dict(l=0,r=0,t=45,b=82),
+        title=dict(text=f"{hazard} · {horizon} · {map_mode}",x=.01,xanchor="left",font=dict(size=16)),
+        hoverlabel=dict(bgcolor="white",font_size=13,font_family="Arial"),
+        legend=dict(orientation="h",y=-.04),
     )
     return fig
 
@@ -1706,6 +1774,164 @@ def climate_index(url):
 # ---------------------------------------------------------------------------
 # Seasonal climate-driver / anomaly visualisations
 # ---------------------------------------------------------------------------
+
+ENSO_STRENGTH_COLUMNS = [
+    "Very strong La Niña","Strong La Niña","Moderate La Niña","Weak La Niña",
+    "Neutral",
+    "Weak El Niño","Moderate El Niño","Strong El Niño","Very strong El Niño",
+]
+ENSO_STRENGTH_COLORS = {
+    "Very strong La Niña":"#172554","Strong La Niña":"#1E3A8A",
+    "Moderate La Niña":"#2563EB","Weak La Niña":"#93C5FD",
+    "Neutral":"#CBD5E1",
+    "Weak El Niño":"#FCA5A5","Moderate El Niño":"#F97316",
+    "Strong El Niño":"#DC2626","Very strong El Niño":"#7F1D1D",
+}
+
+
+def _flatten_html_columns(cols):
+    out=[]
+    for c in cols:
+        if isinstance(c,tuple):
+            out.append(" ".join(str(x) for x in c if str(x)!="nan").strip())
+        else:
+            out.append(str(c).strip())
+    return out
+
+
+@st.cache_data(ttl=43200,show_spinner=False)
+def enso_strength_table():
+    r=requests.get(CPC_ENSO_STRENGTH_URL,timeout=35,headers={"User-Agent":"REACH-EWS/FINAL"})
+    r.raise_for_status()
+    for t in pd.read_html(StringIO(r.text)):
+        x=t.copy(); x.columns=_flatten_html_columns(x.columns)
+        season_col=next((c for c in x.columns if "season" in c.lower()),x.columns[0])
+        numeric=[]
+        for c in x.columns:
+            if c==season_col: continue
+            v=pd.to_numeric(x[c].astype(str).str.replace("%","",regex=False),errors="coerce")
+            if v.notna().sum()>=3: numeric.append(c)
+        if len(numeric)>=9:
+            y=x[[season_col]+numeric[:9]].copy()
+            y.columns=["Season"]+ENSO_STRENGTH_COLUMNS
+            for c in ENSO_STRENGTH_COLUMNS:
+                y[c]=pd.to_numeric(y[c].astype(str).str.replace("%","",regex=False),errors="coerce")
+            return y.dropna(how="all")
+    raise RuntimeError("NOAA CPC ENSO strength table unavailable")
+
+
+@st.cache_data(ttl=43200,show_spinner=False)
+def enso_roni_outlook_table():
+    r=requests.get(CPC_ENSO_OUTLOOK_URL,timeout=35,headers={"User-Agent":"REACH-EWS/FINAL"})
+    r.raise_for_status()
+    for t in pd.read_html(StringIO(r.text)):
+        x=t.copy(); x.columns=_flatten_html_columns(x.columns)
+        season_col=next((c for c in x.columns if "season" in c.lower()),x.columns[0])
+        numeric=[]
+        for c in x.columns:
+            if c==season_col: continue
+            v=pd.to_numeric(x[c],errors="coerce")
+            if v.notna().sum()>=3: numeric.append(c)
+        if len(numeric)>=7:
+            y=x[[season_col]+numeric[:7]].copy()
+            y.columns=["Season","P05","P15","P25","P50","P75","P85","P95"]
+            for c in ["P05","P15","P25","P50","P75","P85","P95"]:
+                y[c]=pd.to_numeric(y[c],errors="coerce")
+            return y.dropna(how="all")
+    raise RuntimeError("NOAA CPC RONI outlook table unavailable")
+
+
+def enso_strength_class(v):
+    if not np.isfinite(v): return "Unavailable"
+    if v <= -2.0: return "Very strong La Niña"
+    if v <= -1.5: return "Strong La Niña"
+    if v <= -1.0: return "Moderate La Niña"
+    if v <= -0.5: return "Weak La Niña"
+    if v < 0.5: return "Neutral"
+    if v < 1.0: return "Weak El Niño"
+    if v < 1.5: return "Moderate El Niño"
+    if v < 2.0: return "Strong El Niño"
+    return "Very strong El Niño"
+
+
+def _season_display_fields(x):
+    def clean(v):
+        s=str(v).strip().upper()
+        m=re.search(r"(DJF|JFM|FMA|MAM|AMJ|MJJ|JJA|JAS|ASO|SON|OND|NDJ)",s)
+        return m.group(1) if m else str(v).strip()
+    out=x.copy()
+    out["Season code"]=out["Season"].map(clean)
+    out["Central month"]=out["Season code"].map(SEASON_CENTRAL_MONTH).fillna("")
+    out["Display period"]=[f"{s} ({m})" if m else str(s) for s,m in zip(out["Season code"],out["Central month"])]
+    return out
+
+
+def enso_strength_figure(df):
+    x=_season_display_fields(df)
+    fig=go.Figure()
+    for cat in ENSO_STRENGTH_COLUMNS:
+        fig.add_trace(go.Bar(
+            x=x["Display period"],y=x[cat],name=cat,
+            marker_color=ENSO_STRENGTH_COLORS[cat],
+            hovertemplate=f"{cat}: <b>%{{y:.1f}}%</b><extra></extra>"
+        ))
+    fig.update_layout(
+        barmode="stack",height=430,margin=dict(l=20,r=10,t=55,b=25),
+        title=dict(text="NOAA CPC ENSO strength probabilities",x=.01,xanchor="left",font=dict(size=17)),
+        xaxis_title="3-month season (central month)",
+        yaxis=dict(title="Probability (%)",range=[0,100]),
+        legend=dict(orientation="h",y=1.16,x=0),hovermode="x unified"
+    )
+    return fig,x
+
+
+def enso_roni_temporal_figure(df):
+    x=_season_display_fields(df)
+    y=pd.to_numeric(x["P50"],errors="coerce").to_numpy(float)
+    pos=np.where(y>=0,y,np.nan); neg=np.where(y<0,y,np.nan)
+    fig=go.Figure()
+    fig.add_trace(go.Scatter(x=x["Display period"],y=x["P25"],mode="lines",line=dict(width=0),showlegend=False,hoverinfo="skip"))
+    fig.add_trace(go.Scatter(
+        x=x["Display period"],y=x["P75"],mode="lines",line=dict(width=0),
+        fill="tonexty",fillcolor="rgba(148,163,184,.22)",name="25–75% RONI range",hoverinfo="skip"
+    ))
+    fig.add_trace(go.Scatter(
+        x=x["Display period"],y=pos,mode="lines",line=dict(color="#B91C1C",width=1.4),
+        fill="tozeroy",fillcolor="rgba(220,38,38,.72)",name="El Niño-side RONI"
+    ))
+    fig.add_trace(go.Scatter(
+        x=x["Display period"],y=neg,mode="lines",line=dict(color="#1E3A8A",width=1.4),
+        fill="tozeroy",fillcolor="rgba(30,58,138,.78)",name="La Niña-side RONI"
+    ))
+    classes=[enso_strength_class(v) for v in y]
+    fig.add_trace(go.Scatter(
+        x=x["Display period"],y=y,mode="lines+markers",line=dict(color="#111827",width=1.4),
+        marker=dict(size=5,color="#111827"),
+        customdata=np.stack([
+            x["Central month"].astype(str),
+            x["P25"].map(lambda v:f"{v:+.2f}" if pd.notna(v) else "—"),
+            x["P75"].map(lambda v:f"{v:+.2f}" if pd.notna(v) else "—"),
+            pd.Series(classes),
+        ],axis=1),
+        name="Median RONI",
+        hovertemplate=(
+            "<b>%{x}</b><br>Central month: %{customdata[0]}<br>"
+            "Median RONI: <b>%{y:+.2f} °C</b><br>"
+            "25–75% range: %{customdata[1]} to %{customdata[2]} °C<br>"
+            "Strength class: <b>%{customdata[3]}</b><extra></extra>"
+        )
+    ))
+    for level in [-2.0,-1.5,-1.0,-0.5,0.5,1.0,1.5,2.0]:
+        fig.add_hline(y=level,line_width=.7,line_dash="dot",line_color="rgba(71,85,105,.35)")
+    fig.add_hline(y=0,line_width=1.2,line_color="#111827")
+    fig.update_layout(
+        height=430,margin=dict(l=20,r=10,t=55,b=25),
+        title=dict(text="Forecast RONI anomaly and ENSO-strength thresholds",x=.01,xanchor="left",font=dict(size=17)),
+        xaxis_title="3-month season (central month)",yaxis_title="RONI anomaly (°C)",
+        legend=dict(orientation="h",y=1.13,x=0),hovermode="x unified"
+    )
+    return fig,x
+
 ENSO_PHASE_COLORS = {
     "La Niña": "#2563EB",
     "Neutral": "#94A3B8",
@@ -1796,168 +2022,160 @@ def _seasonal_anomaly_series(long_data, region_code, horizon_name, variable):
     return series.dropna()
 
 
-def seasonal_anomaly_bar_figure(series, variable, focus_name, horizon_name):
-    """Bar plot of the full available focus-area anomaly outlook."""
-    unit = "°C" if variable == "Temperature anomaly" else "mm"
-    if variable == "Temperature anomaly":
-        colors = ["#2563EB" if v < 0 else "#DC2626" for v in series.to_numpy(float)]
-        interpretation = "blue = cooler than model climatology; red = warmer than model climatology"
+def seasonal_valid_label(series, horizon_name, period_name):
+    section,sl=long_slice(period_name)
+    sel=series.iloc[sl].dropna()
+    if sel.empty: return period_display_label(horizon_name,period_name)
+    d1=pd.Timestamp(sel.index.min()); d2=pd.Timestamp(sel.index.max())
+    if horizon_name=="Seasonal":
+        if len(sel)==1:
+            return f"{d1.strftime('%B %Y')} · model timestamp {d1.strftime('%d %b %Y')}"
+        return f"{d1.strftime('%b %Y')}–{d2.strftime('%b %Y')}"
+    if len(sel)==1: return f"Week centred on {d1.strftime('%d %b %Y')}"
+    return f"{d1.strftime('%d %b %Y')}–{d2.strftime('%d %b %Y')}"
+
+
+def seasonal_anomaly_bar_figure(series, variable, focus_name, horizon_name, period_name=None):
+    unit="°C" if variable=="Temperature anomaly" else "mm"
+    if variable=="Temperature anomaly":
+        colors=["#2563EB" if v<0 else "#DC2626" for v in series.to_numpy(float)]
+        interpretation="blue = cooler than model climatology; red = warmer than model climatology"
     else:
-        colors = ["#B45309" if v < 0 else "#0284C7" for v in series.to_numpy(float)]
-        interpretation = "brown = drier than model climatology; blue = wetter than model climatology"
-
-    labels = (
-        [pd.Timestamp(x).strftime("%d %b") for x in series.index]
-        if horizon_name == "Sub-seasonal"
-        else [pd.Timestamp(x).strftime("%b %Y") for x in series.index]
-    )
-
-    fig = go.Figure(go.Bar(
-        x=labels,
-        y=series.to_numpy(float),
-        marker_color=colors,
+        colors=["#B45309" if v<0 else "#0284C7" for v in series.to_numpy(float)]
+        interpretation="brown = drier than model climatology; blue = wetter than model climatology"
+    labels=[
+        pd.Timestamp(x).strftime("%d %b %Y") if horizon_name=="Sub-seasonal"
+        else pd.Timestamp(x).strftime("%B %Y")
+        for x in series.index
+    ]
+    fig=go.Figure(go.Bar(
+        x=labels,y=series.to_numpy(float),marker_color=colors,
         customdata=[[pd.Timestamp(t).strftime("%d %b %Y")] for t in series.index],
-        hovertemplate=f"%{{customdata[0]}}<br>{variable}: <b>%{{y:.2f}} {unit}</b><extra></extra>",
+        hovertemplate=f"%{{customdata[0]}}<br>{variable}: <b>%{{y:+.2f}} {unit}</b><extra></extra>"
     ))
-    fig.add_hline(y=0, line_color="#475569", line_width=1)
+    fig.add_hline(y=0,line_color="#475569",line_width=1)
     fig.update_layout(
-        height=410,
-        margin=dict(l=20,r=10,t=55,b=25),
-        title=dict(
-            text=f"{focus_name} · {variable} · {horizon_name}",
-            x=.01, xanchor="left", font=dict(size=17)
-        ),
-        xaxis_title="Forecast period",
-        yaxis_title=f"{variable} ({unit})",
-        showlegend=False,
+        height=390,margin=dict(l=20,r=10,t=55,b=25),
+        title=dict(text=f"{focus_name} · {variable} · temporal anomaly",x=.01,xanchor="left",font=dict(size=17)),
+        xaxis_title="Forecast month / period",yaxis_title=f"Anomaly ({unit})",showlegend=False
     )
-    return fig, interpretation
+    return fig,interpretation
+
+
+def seasonal_anomaly_filled_figure(series, variable, focus_name, horizon_name, period_name=None):
+    unit="°C" if variable=="Temperature anomaly" else "mm"
+    y=series.to_numpy(float); pos=np.where(y>=0,y,np.nan); neg=np.where(y<0,y,np.nan)
+    if variable=="Temperature anomaly":
+        pos_line,pos_fill="#B91C1C","rgba(220,38,38,.72)"
+        neg_line,neg_fill="#1E3A8A","rgba(30,58,138,.78)"
+        pos_name,neg_name="Warmer than climatology","Cooler than climatology"
+        interpretation="red = warmer than model climatology; blue = cooler than model climatology"
+    else:
+        pos_line,pos_fill="#0369A1","rgba(14,165,233,.72)"
+        neg_line,neg_fill="#9A3412","rgba(234,88,12,.72)"
+        pos_name,neg_name="Wetter than climatology","Drier than climatology"
+        interpretation="blue = wetter than model climatology; orange/brown = drier than model climatology"
+    labels=[
+        pd.Timestamp(x).strftime("%d %b %Y") if horizon_name=="Sub-seasonal"
+        else pd.Timestamp(x).strftime("%B %Y")
+        for x in series.index
+    ]
+    exact=[pd.Timestamp(x).strftime("%d %b %Y") for x in series.index]
+    fig=go.Figure()
+    fig.add_trace(go.Scatter(
+        x=labels,y=pos,mode="lines",line=dict(color=pos_line,width=1.2),
+        fill="tozeroy",fillcolor=pos_fill,name=pos_name,
+        customdata=[[d] for d in exact],
+        hovertemplate=f"%{{customdata[0]}}<br>{variable}: <b>%{{y:+.2f}} {unit}</b><extra></extra>"
+    ))
+    fig.add_trace(go.Scatter(
+        x=labels,y=neg,mode="lines",line=dict(color=neg_line,width=1.2),
+        fill="tozeroy",fillcolor=neg_fill,name=neg_name,
+        customdata=[[d] for d in exact],
+        hovertemplate=f"%{{customdata[0]}}<br>{variable}: <b>%{{y:+.2f}} {unit}</b><extra></extra>"
+    ))
+    fig.add_trace(go.Scatter(x=labels,y=y,mode="lines",line=dict(color="#111827",width=1.1),name="Anomaly",showlegend=False,hoverinfo="skip"))
+    fig.add_hline(y=0,line_color="#111827",line_width=1)
+    fig.update_layout(
+        height=390,margin=dict(l=20,r=10,t=55,b=25),
+        title=dict(text=f"{focus_name} · {variable} · temporal anomaly",x=.01,xanchor="left",font=dict(size=17)),
+        xaxis_title="Forecast month / period",yaxis_title=f"Anomaly ({unit})",
+        legend=dict(orientation="h",y=1.12,x=0),hovermode="x unified"
+    )
+    return fig,interpretation
 
 
 def seasonal_anomaly_map_data(regions_df, long_data, period_name, variable):
-    """Area-level anomaly values for the valid period selected in the main forecast controls."""
-    section, sl = long_slice(period_name)
-    suffix = "temp" if variable == "Temperature anomaly" else "precip"
-    rows = []
+    section,sl=long_slice(period_name)
+    suffix="temp" if variable=="Temperature anomaly" else "precip"
+    rows=[]
     for r in regions_df.itertuples():
-        s = (
-            long_data.get(str(r.REGION_CODE), {})
-            .get(f"{section}_{suffix}", pd.Series(dtype=float))
-        )
-        s = pd.to_numeric(s, errors="coerce").iloc[sl]
-        value = float(s.mean()) if len(s.dropna()) else np.nan
-        rows.append({**r._asdict(), "value": value})
+        s=long_data.get(str(r.REGION_CODE),{}).get(f"{section}_{suffix}",pd.Series(dtype=float))
+        s=pd.to_numeric(s,errors="coerce").iloc[sl]
+        rows.append({**r._asdict(),"value":float(s.mean()) if len(s.dropna()) else np.nan})
     return pd.DataFrame(rows)
 
 
 def seasonal_anomaly_map_figure(
-    geojson_obj, anomaly_df, variable, focus_name, horizon_name, period_name, source_label
+    geojson_obj, anomaly_df, variable, focus_name, horizon_name, period_name, source_label,
+    basemap_name="Streets / places", layer_opacity=0.64, valid_label=None
 ):
-    """
-    District/municipality choropleth with a zero-centred diverging palette.
-    This intentionally avoids interpolating a false smooth raster between administrative centroids.
-    """
-    df = anomaly_df.copy()
-    df["REGION_CODE"] = df["REGION_CODE"].astype(str)
-    vals = pd.to_numeric(df["value"], errors="coerce").dropna()
-    lim = max(
-        0.1 if variable == "Temperature anomaly" else 1.0,
-        float(np.nanquantile(np.abs(vals), .98)) if len(vals) else 1.0
-    )
-    unit = "°C" if variable == "Temperature anomaly" else "mm"
-
-    if variable == "Temperature anomaly":
-        # SST-anomaly-style palette: blue/cyan -> white -> yellow/orange/red.
-        colorscale = [
-            [0.00,"#1D4ED8"], [0.18,"#0EA5E9"], [0.36,"#22D3EE"],
-            [0.50,"#F8FAFC"],
-            [0.64,"#FDE047"], [0.82,"#F97316"], [1.00,"#DC2626"],
+    df=anomaly_df.copy(); df["REGION_CODE"]=df["REGION_CODE"].astype(str)
+    vals=pd.to_numeric(df["value"],errors="coerce").dropna()
+    lim=max(0.1 if variable=="Temperature anomaly" else 1.0,
+            float(np.nanquantile(np.abs(vals),.98)) if len(vals) else 1.0)
+    unit="°C" if variable=="Temperature anomaly" else "mm"
+    if variable=="Temperature anomaly":
+        colorscale=[
+            [0.00,"#1D4ED8"],[0.18,"#0EA5E9"],[0.36,"#22D3EE"],[0.50,"#F8FAFC"],
+            [0.64,"#FDE047"],[0.82,"#F97316"],[1.00,"#DC2626"]
         ]
-        meaning = "negative = cooler than model climatology · positive = warmer than model climatology"
+        meaning="negative = cooler than model climatology · positive = warmer than model climatology"
     else:
-        # Dry -> neutral -> wet.
-        colorscale = [
-            [0.00,"#9A3412"], [0.20,"#EA580C"], [0.38,"#FDBA74"],
-            [0.50,"#F8FAFC"],
-            [0.62,"#A5F3FC"], [0.80,"#0EA5E9"], [1.00,"#1D4ED8"],
+        colorscale=[
+            [0.00,"#9A3412"],[0.20,"#EA580C"],[0.38,"#FDBA74"],[0.50,"#F8FAFC"],
+            [0.62,"#A5F3FC"],[0.80,"#0EA5E9"],[1.00,"#1D4ED8"]
         ]
-        meaning = "negative = drier than model climatology · positive = wetter than model climatology"
-
-    def display(v):
-        return "Data unavailable" if not np.isfinite(v) else f"{v:+.2f} {unit}"
-
-    df["DISPLAY"] = [display(v) for v in pd.to_numeric(df["value"], errors="coerce")]
-    df["SIGNAL"] = [
-        "Near model climatology" if not np.isfinite(v) or abs(v) < (0.1 if unit=="°C" else 1.0)
-        else (
-            ("Warmer than climatology" if v>0 else "Cooler than climatology")
-            if variable=="Temperature anomaly"
-            else ("Wetter than climatology" if v>0 else "Drier than climatology")
-        )
-        for v in pd.to_numeric(df["value"], errors="coerce")
+        meaning="negative = drier than model climatology · positive = wetter than model climatology"
+    df["DISPLAY"]=["Data unavailable" if not np.isfinite(v) else f"{v:+.2f} {unit}" for v in pd.to_numeric(df["value"],errors="coerce")]
+    df["SIGNAL"]=[
+        "Near model climatology" if not np.isfinite(v) or abs(v)<(0.1 if unit=="°C" else 1.0)
+        else (("Warmer than climatology" if v>0 else "Cooler than climatology") if variable=="Temperature anomaly"
+              else ("Wetter than climatology" if v>0 else "Drier than climatology"))
+        for v in pd.to_numeric(df["value"],errors="coerce")
     ]
-
-    custom = np.stack([
-        df["REGION_NAME"].astype(str),
-        df["ADMIN1"].astype(str),
-        df["DISPLAY"].astype(str),
-        df["SIGNAL"].astype(str),
-    ], axis=1)
-
-    fig = go.Figure(go.Choropleth(
-        geojson=geojson_obj,
-        locations=df["REGION_CODE"],
-        z=df["value"],
-        featureidkey="properties.REGION_CODE",
-        colorscale=colorscale,
-        zmin=-lim, zmax=lim, zmid=0,
-        marker_line_width=.40,
-        marker_line_color="rgba(255,255,255,.82)",
-        colorbar=dict(
-            title=f"{unit} anomaly",
-            thickness=18,
-            len=.78,
-            tickformat="+.1f",
-        ),
+    period_text=valid_label or period_display_label(horizon_name,period_name)
+    custom=np.stack([df["REGION_NAME"].astype(str),df["ADMIN1"].astype(str),df["DISPLAY"].astype(str),df["SIGNAL"].astype(str)],axis=1)
+    fig=go.Figure(go.Choroplethmap(
+        geojson=geojson_obj,locations=df["REGION_CODE"],z=df["value"],
+        featureidkey="properties.REGION_CODE",colorscale=colorscale,zmin=-lim,zmax=lim,zmid=0,
+        marker=dict(opacity=float(layer_opacity),line=dict(width=.65,color="rgba(255,255,255,.88)")),
+        colorbar=horizontal_colorbar(f"{unit} anomaly"),
         customdata=custom,
         hovertemplate=(
-            "<b>%{customdata[0]}</b><br>"
-            "%{customdata[1]}<br>"
-            + variable + ": <b>%{customdata[2]}</b><br>"
+            "<b>%{customdata[0]}</b><br>%{customdata[1]}<br>"+variable+": <b>%{customdata[2]}</b><br>"
             "Interpretation: %{customdata[3]}<br>"
-            f"Valid period: {period_name}<br>"
-            f"Source: {source_label}"
-            "<extra></extra>"
+            f"Forecast period: {period_text}<br>Source: {source_label}<extra></extra>"
         )
     ))
-
-    focus_row = df[df["REGION_NAME"] == focus_name]
+    focus_row=df[df["REGION_NAME"]==focus_name]
     if len(focus_row):
-        r = focus_row.iloc[0]
-        fig.add_trace(go.Scattergeo(
-            lon=[float(r["rep_lon"])], lat=[float(r["rep_lat"])],
-            mode="markers+text", text=[focus_name], textposition="top center",
-            marker=dict(size=8,color="#111827",line=dict(width=1,color="white")),
-            name="Focus area",
-            hovertemplate=f"<b>{focus_name}</b><br>{variable}: {r['DISPLAY']}<extra></extra>",
+        r=focus_row.iloc[0]
+        fig.add_trace(go.Scattermap(
+            lon=[float(r["rep_lon"])],lat=[float(r["rep_lat"])],
+            mode="markers+text",text=[focus_name],textposition="top center",
+            marker=dict(size=10,color="#111827"),name="Focus area",
+            hovertemplate=f"<b>{focus_name}</b><br>{variable}: {r['DISPLAY']}<extra></extra>"
         ))
-
-    fig.update_geos(
-        fitbounds="locations", visible=False, projection_type="mercator",
-        showcountries=False, showcoastlines=False, showland=False,
-        bgcolor="rgba(0,0,0,0)",
-    )
+    centre,zoom=map_view_from_df(df)
     fig.update_layout(
-        height=650,
-        margin=dict(l=0,r=0,t=58,b=0),
-        title=dict(
-            text=f"{variable} · {horizon_name} · {period_name}",
-            x=.01,xanchor="left",font=dict(size=17)
-        ),
+        map=dict(style=BASEMAP_STYLES.get(basemap_name,"carto-voyager"),center=centre,zoom=zoom),
+        height=650,margin=dict(l=0,r=0,t=58,b=88),
+        title=dict(text=f"{variable} · spatial anomaly · {period_text}",x=.01,xanchor="left",font=dict(size=17)),
         hoverlabel=dict(bgcolor="white",font_size=13,font_family="Arial"),
-        legend=dict(orientation="h",y=-.02),
+        legend=dict(orientation="h",y=-.03)
     )
-    return fig, meaning
+    return fig,meaning
 
 
 # ---------------------------------------------------------------------------
@@ -2073,7 +2291,7 @@ if geo_error is None and not regions.empty:
         st.markdown("### Forecast setup")
         horizon=st.selectbox("1 · Forecast horizon",list(HORIZONS),format_func=lambda h:f"{h} · {HORIZONS[h]['window']}")
         hazard=st.selectbox("2 · Hazard",hazards_for_horizon(horizon))
-        period=st.selectbox("3 · Valid period",period_options(horizon))
+        period=st.selectbox("3 · Valid period",period_options(horizon),format_func=lambda p:period_display_label(horizon,p))
 
         if horizon in ("Short range","Medium range"):
             det_source=st.selectbox("4 · Deterministic model",["ECMWF IFS HRES","NOAA GFS"])
@@ -2089,6 +2307,18 @@ if geo_error is None and not regions.empty:
         elif state_name=="Pernambuco": preferred=["Recife","Palmares"]
         ordered=[x for x in preferred if x in focus_names]+[x for x in focus_names if x not in preferred]
         focus=st.selectbox("7 · Focus area",ordered)
+
+        st.markdown("#### Map display")
+        basemap_name=st.selectbox(
+            "Background map",list(BASEMAP_STYLES),
+            index=list(BASEMAP_STYLES).index("Streets / places"),
+            help="Context only: forecast values do not change when the basemap changes."
+        )
+        layer_opacity=st.slider(
+            "Forecast layer opacity",0.30,0.90,0.64,0.05,
+            help="Lower opacity reveals more roads, rivers, settlements, terrain or imagery below the forecast layer."
+        )
+        st.caption("Basemaps provide geographic context beneath the forecast polygons; the model calculation is unchanged.")
 
         temp_threshold=35.0
         rain_threshold=50.0
@@ -2140,7 +2370,7 @@ if geo_error is None and not regions.empty:
                 unsafe_allow_html=True,
             )
             st.plotly_chart(
-                map_figure(geo,map_df,hazard,horizon,mode,focus,period,source_label),
+                map_figure(geo,map_df,hazard,horizon,mode,focus,period,source_label,basemap_name,layer_opacity),
                 use_container_width=True,
                 config={"displayModeBar": True, "scrollZoom": True, "responsive": True},
             )
@@ -2377,160 +2607,146 @@ if geo_error is None and not regions.empty:
         st.info("Climate indices modify seasonal interpretation; they are not direct damage variables and are not used as deterministic flood/heat triggers.")
 
         # ---------------------------------------------------------------
-        # ENSO phase probabilities
+        # ENSO phase / strength / RONI outlook
         # ---------------------------------------------------------------
-        st.markdown("### ENSO outlook · El Niño / Neutral / La Niña")
-        try:
-            enso_visual_df = enso_table()
-            enso_fig, enso_plot_df = enso_probability_figure(enso_visual_df)
-            st.plotly_chart(enso_fig, use_container_width=True)
-            st.caption(
-                "NOAA CPC ENSO outlook periods are overlapping 3-month seasons. "
-                "The month shown in brackets is the central month of each season. "
-                "NOAA CPC uses the category 'Neutral'; 'near-neutral' elsewhere in this portal is descriptive wording for other indices such as DMI."
-            )
+        st.markdown("### ENSO outlook · phase, strength and RONI anomaly")
+        enso_tabs=st.tabs(["Phase probabilities","Strength probabilities","RONI anomaly outlook"])
 
-            enso_table_view = enso_plot_df[[
-                "Season code","Central month","La Niña","Neutral","El Niño",
-                "Dominant phase","Dominant probability (%)"
-            ]].rename(columns={
-                "La Niña":"La Niña (%)",
-                "Neutral":"Neutral (%)",
-                "El Niño":"El Niño (%)",
-            })
-            st.dataframe(
-                enso_table_view.style.format({
-                    "La Niña (%)":"{:.1f}",
-                    "Neutral (%)":"{:.1f}",
-                    "El Niño (%)":"{:.1f}",
-                    "Dominant probability (%)":"{:.1f}",
-                }, na_rep="—"),
-                hide_index=True,
-                use_container_width=True,
-            )
-            st.download_button(
-                "Download ENSO outlook probabilities CSV",
-                enso_table_view.to_csv(index=False).encode("utf-8"),
-                file_name=f"REACH_ENSO_Outlook_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                mime="text/csv",
-                use_container_width=True,
-                key="download_enso_outlook_csv",
-            )
-        except Exception as exc:
-            st.warning(f"ENSO outlook plot is temporarily unavailable: {exc}")
+        with enso_tabs[0]:
+            try:
+                enso_visual_df=enso_table()
+                enso_fig,enso_plot_df=enso_probability_figure(enso_visual_df)
+                st.plotly_chart(enso_fig,use_container_width=True)
+                st.caption("NOAA CPC 3-month seasons: blue = La Niña, grey = Neutral, red = El Niño. The month in brackets is the central month.")
+                phase_view=enso_plot_df[["Season code","Central month","La Niña","Neutral","El Niño","Dominant phase","Dominant probability (%)"]].rename(
+                    columns={"La Niña":"La Niña (%)","Neutral":"Neutral (%)","El Niño":"El Niño (%)"}
+                )
+                st.dataframe(phase_view.style.format({
+                    "La Niña (%)":"{:.1f}","Neutral (%)":"{:.1f}","El Niño (%)":"{:.1f}","Dominant probability (%)":"{:.1f}"
+                },na_rep="—"),hide_index=True,use_container_width=True)
+                st.download_button("Download ENSO phase probabilities CSV",phase_view.to_csv(index=False).encode("utf-8"),
+                                   file_name=f"REACH_ENSO_Phase_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                                   mime="text/csv",use_container_width=True,key="download_enso_phase_csv")
+            except Exception as exc:
+                st.warning(f"ENSO phase outlook is temporarily unavailable: {exc}")
+
+        with enso_tabs[1]:
+            try:
+                strength_df=enso_strength_table()
+                strength_fig,strength_plot_df=enso_strength_figure(strength_df)
+                st.plotly_chart(strength_fig,use_container_width=True)
+                st.caption("Official NOAA CPC categories: Weak, Moderate, Strong and Very Strong La Niña/El Niño, plus Neutral. Strength does not guarantee local impact magnitude.")
+                strength_view=_season_display_fields(strength_plot_df)[["Season code","Central month"]+ENSO_STRENGTH_COLUMNS]
+                st.dataframe(strength_view.style.format({c:"{:.1f}" for c in ENSO_STRENGTH_COLUMNS},na_rep="—"),
+                             hide_index=True,use_container_width=True)
+                st.download_button("Download ENSO strength probabilities CSV",strength_view.to_csv(index=False).encode("utf-8"),
+                                   file_name=f"REACH_ENSO_Strength_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                                   mime="text/csv",use_container_width=True,key="download_enso_strength_csv")
+            except Exception as exc:
+                st.warning(f"ENSO strength outlook is temporarily unavailable: {exc}")
+
+        with enso_tabs[2]:
+            try:
+                roni_df=enso_roni_outlook_table()
+                roni_fig,roni_plot_df=enso_roni_temporal_figure(roni_df)
+                st.plotly_chart(roni_fig,use_container_width=True)
+                roni_view=_season_display_fields(roni_plot_df)[["Season code","Central month","P25","P50","P75"]].copy()
+                roni_view["Median strength class"]=[enso_strength_class(v) for v in pd.to_numeric(roni_view["P50"],errors="coerce")]
+                st.dataframe(roni_view.style.format({"P25":"{:+.2f}","P50":"{:+.2f}","P75":"{:+.2f}"},na_rep="—"),
+                             hide_index=True,use_container_width=True)
+                st.caption("Red/blue fill = forecast median RONI anomaly; grey envelope = 25–75% range; horizontal thresholds define ENSO strength categories.")
+                st.download_button("Download RONI outlook CSV",roni_view.to_csv(index=False).encode("utf-8"),
+                                   file_name=f"REACH_RONI_Outlook_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                                   mime="text/csv",use_container_width=True,key="download_roni_outlook_csv")
+            except Exception as exc:
+                st.warning(f"RONI anomaly outlook is temporarily unavailable: {exc}")
 
         # ---------------------------------------------------------------
-        # Selectable seasonal / sub-seasonal anomaly visualisation
+        # Seasonal / sub-seasonal temporal + spatial anomaly visualisation
         # ---------------------------------------------------------------
         st.markdown("### Forecast anomaly visualisation")
         if horizon not in ("Sub-seasonal","Seasonal"):
-            st.info(
-                "Select **Sub-seasonal** or **Seasonal** in Forecast setup to activate anomaly bars and spatial anomaly maps. "
-                "ENSO climate-state probabilities remain visible above because they provide seasonal background context."
-            )
+            st.info("Select **Sub-seasonal** or **Seasonal** to activate linked temporal and spatial anomaly views.")
         else:
-            av1,av2 = st.columns([1,1])
+            av1,av2,av3=st.columns([1.15,1,1])
             with av1:
-                anomaly_view = st.radio(
-                    "Visualisation",
-                    ["Bar plot of anomalies","Spatial anomaly map"],
-                    horizontal=True,
-                    key="seasonal_anomaly_view",
-                )
+                anomaly_view=st.radio("Display",["Temporal + spatial","Temporal only","Spatial only"],
+                                      horizontal=True,key="seasonal_anomaly_view_final")
             with av2:
-                anomaly_variable = st.selectbox(
-                    "Anomaly variable",
-                    ["Temperature anomaly","Precipitation anomaly"],
-                    key="seasonal_anomaly_variable",
-                )
+                temporal_style=st.selectbox("Temporal style",["Filled anomaly time series","Bar plot"],
+                                            key="seasonal_temporal_style")
+            with av3:
+                anomaly_variable=st.selectbox("Anomaly variable",["Temperature anomaly","Precipitation anomaly"],
+                                              key="seasonal_anomaly_variable_final")
 
-            long_data = payload.get("long",{}) if isinstance(payload,dict) else {}
-            long_status_for_view = map_status if "map_status" in locals() else ""
+            long_data=payload.get("long",{}) if isinstance(payload,dict) else {}
+            long_status_for_view=map_status if "map_status" in locals() else ""
             if not long_data:
                 try:
                     with st.spinner("Loading seasonal anomaly fields..."):
-                        long_data,long_status_for_view = regional_long(regions.to_dict("records"))
+                        long_data,long_status_for_view=regional_long(regions.to_dict("records"))
                 except Exception as exc:
-                    long_data = {}
+                    long_data={}
                     st.warning(f"Seasonal anomaly data are temporarily unavailable: {exc}")
 
             if long_data:
-                focus_code = str(meta.REGION_CODE)
-                if anomaly_view == "Bar plot of anomalies":
-                    s_anom = _seasonal_anomaly_series(
-                        long_data, focus_code, horizon, anomaly_variable
+                focus_code=str(meta.REGION_CODE)
+                s_anom=_seasonal_anomaly_series(long_data,focus_code,horizon,anomaly_variable)
+                if s_anom.empty:
+                    st.info("No anomaly series is available for the selected focus area.")
+                else:
+                    valid_label=seasonal_valid_label(s_anom,horizon,period)
+                    st.markdown(
+                        f'<div class="hoverhint"><b>Selected forecast period:</b> {valid_label} · '
+                        f'<b>Variable:</b> {anomaly_variable} · <b>Focus area:</b> {focus}</div>',
+                        unsafe_allow_html=True
                     )
-                    if s_anom.empty:
-                        st.info("No anomaly series is available for the selected focus area.")
-                    else:
-                        fig, meaning = seasonal_anomaly_bar_figure(
-                            s_anom, anomaly_variable, focus, horizon
-                        )
+
+                    if anomaly_view in ("Temporal + spatial","Temporal only"):
+                        st.markdown("#### Temporal anomaly outlook")
+                        if temporal_style=="Filled anomaly time series":
+                            fig,meaning=seasonal_anomaly_filled_figure(s_anom,anomaly_variable,focus,horizon,period)
+                        else:
+                            fig,meaning=seasonal_anomaly_bar_figure(s_anom,anomaly_variable,focus,horizon,period)
                         st.plotly_chart(fig,use_container_width=True)
-                        sm_anom = stat_summary(s_anom)
-                        ac = st.columns(4)
-                        unit_anom = "°C" if anomaly_variable=="Temperature anomaly" else "mm"
+                        sm_anom=stat_summary(s_anom)
+                        unit_anom="°C" if anomaly_variable=="Temperature anomaly" else "mm"
+                        ac=st.columns(4)
                         ac[0].metric("Minimum",fmt(sm_anom["min"],unit_anom))
                         ac[1].metric("Mean",fmt(sm_anom["mean"],unit_anom))
                         ac[2].metric("Median",fmt(sm_anom["median"],unit_anom))
                         ac[3].metric("Maximum",fmt(sm_anom["max"],unit_anom))
-                        st.caption(
-                            f"{meaning}. These are model anomalies relative to the forecast system climatology, not absolute temperature or rainfall."
-                        )
-
-                        series_export = pd.DataFrame({
-                            "Date": s_anom.index,
-                            "Country": country,
-                            "Area": focus,
-                            "Horizon": horizon,
-                            "Variable": anomaly_variable,
-                            "AnomalyValue": s_anom.to_numpy(float),
-                            "Unit": unit_anom,
-                            "Source":"ECMWF EC46 / SEAS5 via Open-Meteo seasonal API",
+                        st.caption(f"{meaning}. Anomalies are relative to the forecast-system climatology; they are not event probabilities.")
+                        series_export=pd.DataFrame({
+                            "Date":s_anom.index,
+                            "ForecastMonthOrPeriod":[pd.Timestamp(x).strftime("%B %Y") if horizon=="Seasonal" else pd.Timestamp(x).strftime("%d %b %Y") for x in s_anom.index],
+                            "Country":country,"Area":focus,"Horizon":horizon,"Variable":anomaly_variable,
+                            "AnomalyValue":s_anom.to_numpy(float),"Unit":unit_anom,
+                            "Source":"ECMWF EC46 / SEAS5 via Open-Meteo seasonal API"
                         })
-                        st.download_button(
-                            "Download anomaly bar data CSV",
-                            series_export.to_csv(index=False).encode("utf-8"),
-                            file_name=f"REACH_Anomaly_Series_{country}_{focus}_{anomaly_variable.replace(' ','_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                            mime="text/csv",
-                            use_container_width=True,
-                            key="download_anomaly_series_csv",
-                        )
-                else:
-                    anomaly_map_df = seasonal_anomaly_map_data(
-                        regions,long_data,period,anomaly_variable
-                    )
-                    fig, meaning = seasonal_anomaly_map_figure(
-                        geo,anomaly_map_df,anomaly_variable,focus,horizon,period,
-                        "ECMWF EC46 / SEAS5"
-                    )
-                    st.plotly_chart(fig,use_container_width=True)
-                    st.caption(
-                        f"{meaning}. The map shades districts/municipalities using a zero-centred diverging palette, similar to standard anomaly maps. "
-                        "It does not interpolate a false smooth raster between administrative areas."
-                    )
-                    map_export = anomaly_map_df[[
-                        "REGION_CODE","REGION_NAME","ADMIN1","rep_lat","rep_lon","value"
-                    ]].copy()
-                    map_export["Country"] = country
-                    map_export["Horizon"] = horizon
-                    map_export["ValidPeriod"] = period
-                    map_export["Variable"] = anomaly_variable
-                    map_export["Unit"] = "°C" if anomaly_variable=="Temperature anomaly" else "mm"
-                    map_export["Source"] = "ECMWF EC46 / SEAS5 via Open-Meteo seasonal API"
-                    st.download_button(
-                        "Download spatial anomaly CSV",
-                        map_export.to_csv(index=False).encode("utf-8"),
-                        file_name=f"REACH_Spatial_Anomaly_{country}_{anomaly_variable.replace(' ','_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                        mime="text/csv",
-                        use_container_width=True,
-                        key="download_spatial_anomaly_csv",
-                    )
+                        st.download_button("Download temporal anomaly CSV",series_export.to_csv(index=False).encode("utf-8"),
+                                           file_name=f"REACH_Anomaly_Temporal_{country}_{focus}_{anomaly_variable.replace(' ','_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                                           mime="text/csv",use_container_width=True,key="download_temporal_anomaly_csv")
 
-                st.caption(
-                    f"Forecast source status: {long_status_for_view}. "
-                    "The seasonal/sub-seasonal anomaly layer is automatically linked to the country/state, focus area, horizon and valid period selected in the main dashboard."
-                )
+                    if anomaly_view in ("Temporal + spatial","Spatial only"):
+                        st.markdown("#### Spatial anomaly outlook")
+                        anomaly_map_df=seasonal_anomaly_map_data(regions,long_data,period,anomaly_variable)
+                        fig,meaning=seasonal_anomaly_map_figure(
+                            geo,anomaly_map_df,anomaly_variable,focus,horizon,period,"ECMWF EC46 / SEAS5",
+                            basemap_name=basemap_name,layer_opacity=layer_opacity,valid_label=valid_label
+                        )
+                        st.plotly_chart(fig,use_container_width=True,
+                                       config={"displayModeBar":True,"scrollZoom":True,"responsive":True})
+                        st.caption(f"{meaning}. Horizontal colour scale is centred on zero. Basemap: {basemap_name}.")
+                        map_export=anomaly_map_df[["REGION_CODE","REGION_NAME","ADMIN1","rep_lat","rep_lon","value"]].copy()
+                        map_export["Country"]=country; map_export["Horizon"]=horizon; map_export["ValidPeriod"]=valid_label
+                        map_export["Variable"]=anomaly_variable; map_export["Unit"]="°C" if anomaly_variable=="Temperature anomaly" else "mm"
+                        map_export["Source"]="ECMWF EC46 / SEAS5 via Open-Meteo seasonal API"
+                        st.download_button("Download spatial anomaly CSV",map_export.to_csv(index=False).encode("utf-8"),
+                                           file_name=f"REACH_Spatial_Anomaly_{country}_{anomaly_variable.replace(' ','_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                                           mime="text/csv",use_container_width=True,key="download_spatial_anomaly_csv_final")
+
+                    st.caption(f"Forecast source status: {long_status_for_view}. Temporal and spatial panels are linked to the same selection.")
 
         st.markdown("### Forecast evidence and convergence")
         st.caption(
@@ -2953,10 +3169,14 @@ The return-period class is a *rarity/severity label*; actual heat impacts should
         st.markdown("### Reading the seasonal visualisations")
         st.markdown(
             """
-- **ENSO probability bars:** each bar is an overlapping 3-month NOAA CPC outlook season and sums to approximately 100%. Blue is La Niña, grey is Neutral and red is El Niño. The largest segment is the dominant climate-state probability for that season.
-- **Anomaly bar plot:** shows the focus area's week-by-week (sub-seasonal) or month-by-month (seasonal) anomaly. Temperature is in °C relative to model climatology; precipitation is in mm relative to model climatology.
-- **Spatial anomaly map:** shades the selected country's districts or the selected Brazilian state's municipalities for the chosen valid period. Temperature uses a blue-to-red zero-centred scale; precipitation uses dry brown/orange to wet cyan/blue.
-- **Anomaly ≠ event:** a positive temperature anomaly does not automatically mean a heatwave, and a positive precipitation anomaly does not automatically mean flooding.
+- **ENSO phase probabilities:** overlapping 3-month NOAA CPC outlook seasons for La Niña, Neutral and El Niño.
+- **ENSO strength probabilities:** official Weak, Moderate, Strong and Very Strong La Niña/El Niño categories plus Neutral.
+- **RONI anomaly outlook:** filled red/blue median RONI plot with 25–75% uncertainty and official strength thresholds.
+- **Temporal anomaly outlook:** week-by-week or month-by-month temperature/precipitation anomaly, with month/date visible in the chart and hover.
+- **Spatial anomaly outlook:** the same selected period mapped across districts/municipalities with a horizontal, zero-centred colour scale.
+- **Basemap selector:** Streets/places, OpenStreetMap, clean light, terrain/outdoors, satellite and satellite+streets.
+- **Opacity control:** reveals more geographic context without changing forecast values.
+- **Anomaly ≠ event:** a positive temperature anomaly does not automatically mean heatwave; a positive precipitation anomaly does not automatically mean flooding.
 """
         )
 
