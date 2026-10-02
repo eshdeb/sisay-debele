@@ -15,6 +15,9 @@ required = [
     "zambia_116_district_forecast_points.csv",
     "brazil_5572_municipalities_simplified.geojson",
     "brazil_5572_municipality_points.csv",
+    "zambia_pilot_facility_details.xls",
+    "zambia_pilot_hmis_context.csv",
+    "DATA_SOURCES.md",
 ]
 
 print("REACH EWS preflight check")
@@ -62,6 +65,17 @@ if len(b_geo.get("features", [])) != 5572 or len(b_pts) != 5572:
     raise SystemExit("Brazil geography check failed: expected 5,572 municipalities.")
 print("[PASS] Brazil geography contains 5,572 municipalities.")
 
+# Facility/HMIS support checks.
+req_text = (ROOT / "requirements.txt").read_text(encoding="utf-8")
+if "xlrd" not in req_text:
+    raise SystemExit("requirements.txt must include xlrd for the bundled legacy .xls facility file.")
+print("[PASS] Facility workbook dependency (xlrd) is declared.")
+
+hmis = pd.read_csv(ROOT / "zambia_pilot_hmis_context.csv")
+if "district" not in hmis.columns or not {"Senanga", "Sinazongwe"}.issubset(set(hmis["district"].astype(str))):
+    raise SystemExit("Pilot HMIS context check failed: expected Senanga and Sinazongwe district records.")
+print(f"[PASS] Pilot HMIS context is present for Senanga and Sinazongwe ({len(hmis):,} rows).")
+
 expected_text = [
     "Forecast verification · REACH pilot sites",
     "Daily minimum temperature",
@@ -85,6 +99,15 @@ expected_text = [
     "RONI anomaly outlook",
     "Filled anomaly time series",
     "horizontal_colorbar",
+    "Health-facility forecast drill-down",
+    "District / municipality overview",
+    "Facility forecast focus",
+    "facility_forecast_exposure.csv",
+    "facility_registry.csv",
+    "FacilityRegistrySource",
+    "Historical forecast verification on this tab remains at the parent pilot-area level",
+    'button[data-baseweb="tab"]',
+    'div[data-testid="stSelectbox"] div[data-baseweb="select"] > div',
 ]
 for text in expected_text:
     if text not in source:

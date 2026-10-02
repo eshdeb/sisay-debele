@@ -1,24 +1,19 @@
 # GitHub → Streamlit Community Cloud
 
-## 1. Create the GitHub repository
+## 1. Repository
 
-Suggested repository name:
+Upload the **contents of this release folder**, not the outer ZIP itself, to the repository root.
 
-`reach-climate-health-ews`
-
-Upload the **contents of this folder**, not the outer ZIP itself.
-
-Keep these files at the repository root:
-
+Keep at root:
 - `streamlit_app.py`
 - `requirements.txt`
 - `preflight_check.py`
-- the four Zambia/Brazil geography/data files
+- Zambia/Brazil national geography/data files
+- `zambia_pilot_facility_details.xls`
+- `zambia_pilot_hmis_context.csv`
 - `.streamlit/config.toml`
 
-## 2. Check locally before pushing
-
-From PowerShell in the folder:
+## 2. Local check
 
 ```powershell
 py preflight_check.py
@@ -26,34 +21,32 @@ py -m pip install -r requirements.txt
 py -m streamlit run streamlit_app.py
 ```
 
-Check the main tabs and specifically open:
-
-`Forecast verification · REACH pilots`
-
-Confirm that Tmin/Tmean/Tmax and TX90/TX95/TX99 appear without warning boxes.
+Confirm the main tabs render as filled high-contrast controls and test the four pilot areas.
 
 ## 3. Deploy
 
 In Streamlit Community Cloud:
+1. Create/update the app from the GitHub repository and branch.
+2. Set main file path to `streamlit_app.py`.
+3. Select Python **3.12** in Advanced settings.
+4. Deploy/reboot the app after the dependency update.
 
-1. Click **Create app**.
-2. Select the GitHub repository and branch.
-3. Set the main file path to `streamlit_app.py`.
-4. Open **Advanced settings** and select Python **3.12**.
-5. Deploy.
-
-## 4. After deployment
+## 4. Post-deployment checks
 
 Test:
-- Zambia → Senanga → Heatwave
-- Zambia → Sinazongwe → Flood – rainfall
-- Brazil → Pernambuco → Recife
-- Brazil → Pernambuco → Palmares
+- Zambia → Senanga → district overview, then individual facility
+- Zambia → Sinazongwe → district overview, then individual facility
+- Brazil → Pernambuco → Recife → municipality overview, then individual facility
+- Brazil → Pernambuco → Palmares → municipality overview, then individual facility
+- River hydrology
+- Climate drivers
+- Decision-maker briefing
+- Documentation · return periods · SDM
 - Downloads · CSV / Stella
 - Forecast verification · REACH pilots
 
-If an external forecast provider is temporarily unavailable or rate-limits a request, the dashboard may show a source-specific availability message. That is separate from a Python-code error.
+The Brazil facility registry is retrieved from the public CNES/DATASUS API at runtime. The Zambia facility registry can combine the bundled REACH project file with the public NSDI service. External provider outages/rate limits should not remove the parent district/municipality forecast.
 
-## 5. Sharing
+## 5. Interpretation
 
-Once Streamlit gives you the `.streamlit.app` URL, send that link to the team.
+Facility outputs are point-specific hazard/exposure signals. Do not label them operational facility risk unless readiness/access data are explicitly integrated.

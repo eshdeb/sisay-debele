@@ -1,23 +1,33 @@
-REACH Climate-Health EWS
+REACH Climate–Health EWS
 Final GitHub / Streamlit release
-Date: 2026-09-30
+Date: 2026-10-02
+Release: Facility drill-down + high-contrast interface
 
-Fixes included:
-- imported Python regular-expression module `re` for TX90/TX95/TX99 and P90/P95/P99 verification parsing
-- uses `BytesIO()` consistently for downloadable ZIP creation
-- preserves the full comprehensive dashboard content and verification suite
+Core platform retained:
+- Zambia: all 116 districts
+- Brazil: all 5,572 municipalities
+- REACH pilot verification: Senanga, Sinazongwe, Recife and Palmares
+- short-, medium-, sub-seasonal and seasonal forecast workflows
+- heat, rainfall flood, river-discharge flood, drought and compound-hazard views
+- ECMWF / NOAA comparison, GloFAS, climate drivers, return periods, Stella/SDM hand-off and verification
 
-Seasonal visualisation revision:
-- restored ENSO La Niña / Neutral / El Niño probability bars
-- added central-month labels and downloadable probability table
-- added selectable anomaly bar plot and spatial anomaly map
-- added temperature- and precipitation-anomaly downloads
+Facility-level revision:
+- health facilities are nested under their parent district/municipality, not promoted to a competing top-level geography
+- district/municipality overview remains the default
+- pilot-area facility selector added for Senanga, Sinazongwe, Recife and Palmares
+- facility-point hazard/exposure forecasts use the selected facility coordinates
+- facility comparison map, ranked table and CSV export added
+- Zambia registry combines the bundled REACH facility file with the public Zambia NSDI health-facility service when available
+- Brazil registry is retrieved from the public CNES/DATASUS API when available
+- uploaded Zambia HMIS data are bundled as district-level context for Senanga/Sinazongwe; they are not misattributed to individual facilities
+- facility outputs explicitly distinguish hazard/exposure screening from operational health-facility risk
 
-Final spatiotemporal/basemap revision:
-- contextual selectable MapLibre basemaps + opacity
-- horizontal map colour bars
-- calendar month labels in seasonal valid-period selector
-- combined temporal + spatial anomaly panel
-- filled anomaly time series + optional bars
-- NOAA CPC ENSO strength probability plot
-- NOAA CPC RONI filled anomaly outlook
+Interface revision:
+- all seven analysis tabs use filled, high-contrast professional colours with bold white labels
+- active tab uses a strong teal/navy treatment with a gold focus border
+- forecast setup select controls use filled teal/navy styling with bold white values
+- radio controls, download buttons and source links use consistent high-contrast styling
+- tab row wraps so Decision-maker briefing, River hydrology and Forecast verification remain visible on narrower screens
+
+Scientific boundary:
+A facility-specific forecast is a point-specific hazard/exposure signal. It must not be interpreted as an operational facility-risk score unless readiness/access data such as staffing, WASH, electricity, cold chain, service availability or access disruption are explicitly integrated.

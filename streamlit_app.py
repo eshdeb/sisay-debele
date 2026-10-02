@@ -35,6 +35,7 @@ import hashlib
 import json
 import re
 import time
+import unicodedata
 import zipfile
 
 import numpy as np
@@ -57,6 +58,17 @@ BRAZIL_GEOJSON = ROOT / "brazil_5572_municipalities_simplified.geojson"
 BRAZIL_POINTS = ROOT / "brazil_5572_municipality_points.csv"
 CACHE_DIR = ROOT / ".reach_cache"
 CACHE_DIR.mkdir(exist_ok=True)
+
+# Facility drill-down sources. Facility locations are used for point-specific hazard
+# forecasts; operational risk is only claimed when readiness/access inputs are present.
+ZAMBIA_FACILITY_QUERY_URL = "https://www.map.gov.zm/arcgis/rest/services/Health/NSDI_Health/MapServer/0/query"
+ZAMBIA_FACILITY_SOURCE_URL = "https://www.map.gov.zm/arcgis/rest/services/Health/NSDI_Health/MapServer/0"
+BRAZIL_CNES_ENDPOINT = "https://apidadosabertos.saude.gov.br/cnes/estabelecimentos"
+BRAZIL_CNES_SOURCE_URL = "https://dadosabertos.saude.gov.br/dataset/cnes-cadastro-nacional-de-estabelecimentos-de-saude"
+ZAMBIA_PILOT_FACILITY_XLS = ROOT / "zambia_pilot_facility_details.xls"
+ZAMBIA_PILOT_HMIS_CSV = ROOT / "zambia_pilot_hmis_context.csv"
+FACILITY_OVERVIEW_OPTION = "District / municipality overview"
+FACILITY_SCREEN_SOFT_LIMIT = 180
 
 st.set_page_config(
     page_title="REACH Climate–Health EWS",
@@ -92,7 +104,65 @@ border-radius:14px;padding:14px 16px;margin:9px 0}
 div[data-testid="stMetric"]{background:white;border:1px solid #E2E8F0;padding:8px 10px;border-radius:12px}
 div.stButton > button{background:#0F766E;color:white;border:0;border-radius:9px;font-weight:800}
 div.stButton > button:hover{background:#115E59;color:white;border:0}
-a[data-testid="stLinkButton"]{background:#0B5A7A;color:white !important;border-radius:9px;border:0}
+a[data-testid="stLinkButton"]{background:#0B5A7A;color:white !important;border-radius:10px;border:0;font-weight:800;box-shadow:0 4px 12px rgba(11,90,122,.15)}
+
+/* Modern, high-contrast navigation: every tab is a visible filled control. */
+div[data-baseweb="tab-list"]{
+  gap:.42rem !important; flex-wrap:wrap !important; overflow:visible !important;
+  background:#E8EEF5 !important; border:1px solid #CBD5E1 !important;
+  border-radius:15px !important; padding:.48rem !important; margin:.25rem 0 .75rem !important;
+}
+button[data-baseweb="tab"]{
+  min-height:44px !important; height:auto !important; white-space:normal !important;
+  border-radius:10px !important; padding:.56rem .80rem !important;
+  color:#FFFFFF !important; font-weight:850 !important; letter-spacing:.005em !important;
+  border:1px solid rgba(255,255,255,.16) !important;
+  background:linear-gradient(135deg,#334155,#1E3A5F) !important;
+  box-shadow:0 3px 9px rgba(15,23,42,.12) !important;
+}
+button[data-baseweb="tab"] p,button[data-baseweb="tab"] span{color:#FFFFFF !important;font-weight:850 !important}
+button[data-baseweb="tab"]:hover{filter:brightness(1.10);transform:translateY(-1px)}
+button[data-baseweb="tab"][aria-selected="true"]{
+  background:linear-gradient(135deg,#075985,#0F766E) !important;
+  color:#FFFFFF !important; border:2px solid #FBBF24 !important;
+  box-shadow:0 6px 16px rgba(7,89,133,.23) !important;
+}
+div[data-baseweb="tab-list"] button:nth-child(2){background:linear-gradient(135deg,#0F766E,#115E59) !important}
+div[data-baseweb="tab-list"] button:nth-child(3){background:linear-gradient(135deg,#1D4ED8,#4338CA) !important}
+div[data-baseweb="tab-list"] button:nth-child(4){background:linear-gradient(135deg,#166534,#15803D) !important}
+div[data-baseweb="tab-list"] button:nth-child(5){background:linear-gradient(135deg,#0E7490,#0369A1) !important}
+div[data-baseweb="tab-list"] button:nth-child(6){background:linear-gradient(135deg,#475569,#334155) !important}
+div[data-baseweb="tab-list"] button:nth-child(7){background:linear-gradient(135deg,#6D28D9,#7E22CE) !important}
+div[data-baseweb="tab-list"] button[aria-selected="true"]{background:linear-gradient(135deg,#075985,#0F766E) !important}
+
+/* Forecast setup controls: strong filled selectors with white bold values. */
+div[data-testid="stSelectbox"] label p,div[data-testid="stNumberInput"] label p,div[data-testid="stSlider"] label p,div[data-testid="stRadio"] label p{
+  color:#0F172A !important;font-weight:800 !important
+}
+div[data-testid="stSelectbox"] div[data-baseweb="select"] > div{
+  background:linear-gradient(135deg,#0B5A7A,#0F766E) !important;
+  border:1px solid #0E7490 !important;border-radius:11px !important;
+  color:#FFFFFF !important;min-height:43px !important;box-shadow:0 4px 12px rgba(15,118,110,.13)
+}
+div[data-testid="stSelectbox"] div[data-baseweb="select"] *{color:#FFFFFF !important;font-weight:750 !important}
+div[data-testid="stSelectbox"] svg{fill:#FFFFFF !important}
+div[data-testid="stNumberInput"] input,div[data-testid="stTextInput"] input{
+  border-radius:10px !important;border:1px solid #94A3B8 !important;background:#F8FAFC !important;font-weight:700 !important
+}
+div[data-testid="stRadio"] div[role="radiogroup"]{gap:.35rem}
+div[data-testid="stRadio"] div[role="radiogroup"] label{
+  background:#E0F2FE;border:1px solid #7DD3FC;border-radius:9px;padding:.28rem .48rem;font-weight:750
+}
+div.stDownloadButton > button{
+  background:linear-gradient(135deg,#1D4ED8,#0E7490) !important;color:#FFFFFF !important;
+  border:0 !important;border-radius:10px !important;font-weight:800 !important;
+  box-shadow:0 4px 12px rgba(29,78,216,.14) !important
+}
+div.stDownloadButton > button:hover{filter:brightness(1.06)}
+
+.facility-focus{background:linear-gradient(110deg,#ECFDF5,#EFF6FF);border:1px solid #86EFAC;border-left:6px solid #0F766E;border-radius:14px;padding:12px 15px;margin:9px 0}
+.facility-focus b{color:#064E3B}
+.facility-note{background:#F8FAFC;border:1px solid #CBD5E1;border-radius:12px;padding:10px 12px;color:#334155}
 </style>
 """, unsafe_allow_html=True)
 
@@ -264,6 +334,411 @@ def geography(country, brazil_state_name):
     if country == "Zambia":
         return load_zambia()
     return load_brazil_state(brazil_state_name)
+
+
+# ---------------------------------------------------------------------------
+# Health-facility registry and facility-level forecast drill-down
+# ---------------------------------------------------------------------------
+def _text_key(value):
+    text = unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]+", "", text.casefold())
+
+
+def _find_column(df, exact=(), contains=()):
+    if df is None or df.empty:
+        return None
+    keyed = {_text_key(c): c for c in df.columns}
+    for candidate in exact:
+        k = _text_key(candidate)
+        if k in keyed:
+            return keyed[k]
+    for c in df.columns:
+        k = _text_key(c)
+        if any(_text_key(token) in k for token in contains):
+            return c
+    return None
+
+
+def _valid_lat_lon(df):
+    out = df.copy()
+    out["rep_lat"] = pd.to_numeric(out.get("rep_lat"), errors="coerce")
+    out["rep_lon"] = pd.to_numeric(out.get("rep_lon"), errors="coerce")
+    out = out[out["rep_lat"].between(-90, 90) & out["rep_lon"].between(-180, 180)].copy()
+    return out
+
+
+def _extract_combined_coordinates(series):
+    lat, lon = [], []
+    for value in series.astype(str):
+        nums = re.findall(r"[-+]?\d+(?:\.\d+)?", value)
+        if len(nums) >= 2:
+            a, b = float(nums[0]), float(nums[1])
+            # Zambia and Brazil are both in the Southern Hemisphere; use this only as a fallback parser.
+            if -90 <= a <= 90 and -180 <= b <= 180:
+                lat.append(a); lon.append(b); continue
+        lat.append(np.nan); lon.append(np.nan)
+    return pd.Series(lat, index=series.index), pd.Series(lon, index=series.index)
+
+
+def _standardise_project_facilities(raw, district_hint=""):
+    if raw is None or raw.empty:
+        return pd.DataFrame()
+    df = raw.copy()
+    name_col = _find_column(df,
+        exact=("facility name","health facility name","health facility","facility","dhis2 name","facility_name"),
+        contains=("facilityname","healthfacility","dhis2name"))
+    lat_col = _find_column(df, exact=("latitude","lat","y"), contains=("latitude",))
+    lon_col = _find_column(df, exact=("longitude","lon","long","x"), contains=("longitude",))
+    coord_col = _find_column(df, contains=("coordinate","gps"))
+    district_col = _find_column(df, exact=("district",), contains=("district",))
+    type_col = _find_column(df, exact=("facility type","type","level"), contains=("facilitytype","facilitylevel"))
+    id_col = _find_column(df, exact=("facility id","dhis2 id","orgunit uid","uid","id"), contains=("orgunit","facilityid","dhis2id"))
+    if name_col is None:
+        return pd.DataFrame()
+    out = pd.DataFrame(index=df.index)
+    out["FacilityName"] = df[name_col].astype(str).str.strip()
+    if lat_col is not None and lon_col is not None:
+        out["rep_lat"] = pd.to_numeric(df[lat_col], errors="coerce")
+        out["rep_lon"] = pd.to_numeric(df[lon_col], errors="coerce")
+    elif coord_col is not None:
+        out["rep_lat"], out["rep_lon"] = _extract_combined_coordinates(df[coord_col])
+    else:
+        return pd.DataFrame()
+    out["ParentArea"] = df[district_col].astype(str).str.strip() if district_col is not None else district_hint
+    out["FacilityType"] = df[type_col].astype(str).str.strip() if type_col is not None else "Health facility"
+    out["FacilityID"] = df[id_col].astype(str).str.strip() if id_col is not None else [f"REACH-{i+1}" for i in range(len(out))]
+    out["Country"] = "Zambia"
+    out["Source"] = "REACH project facility file"
+    out["SourceURL"] = ""
+    out["MCHPriority"] = True
+    out["MCHServices"] = "Project facility registry; service profile not inferred from location alone"
+    out = _valid_lat_lon(out)
+    out = out[out["FacilityName"].ne("") & out["FacilityName"].str.lower().ne("nan")].copy()
+    out["REGION_CODE"] = "FAC-ZM-PROJ-" + out["FacilityID"].astype(str).map(_text_key)
+    out["REGION_NAME"] = out["FacilityName"]
+    out["ADMIN1"] = out["ParentArea"]
+    return out.reset_index(drop=True)
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def zambia_facilities_online(district):
+    district_names = [district]
+    if _text_key(district) == "sinazongwe":
+        district_names.append("Senazongwe")
+    frames, statuses = [], []
+    for dname in district_names:
+        safe = str(dname).replace("'", "''")
+        params = {
+            "where": f"District='{safe}'",
+            "outFields": "*",
+            "returnGeometry": "true",
+            "outSR": 4326,
+            "f": "json",
+        }
+        try:
+            payload, status = cached_json(ZAMBIA_FACILITY_QUERY_URL, params, 86400, 45)
+            statuses.append(status)
+            rows = []
+            for feat in payload.get("features", []) if isinstance(payload, dict) else []:
+                a = feat.get("attributes", {}) or {}
+                g = feat.get("geometry", {}) or {}
+                name = a.get("Fac_Label") or a.get("DHIS2_Name") or a.get("Facility") or ""
+                lat = a.get("Latitude", g.get("y"))
+                lon = a.get("Longitude", g.get("x"))
+                rows.append({
+                    "FacilityID": f"ZM-NSDI-{a.get('OBJECTID','')}",
+                    "FacilityName": str(name).strip(),
+                    "FacilityType": str(a.get("Fac_Type") or "Health facility").strip(),
+                    "ParentArea": str(a.get("District") or dname).strip(),
+                    "Province": str(a.get("Province") or "").strip(),
+                    "Country": "Zambia",
+                    "rep_lat": lat,
+                    "rep_lon": lon,
+                    "Source": "Zambia NSDI health-facility layer",
+                    "SourceURL": ZAMBIA_FACILITY_SOURCE_URL,
+                    "MCHPriority": True,
+                    "MCHServices": "Facility type from the national spatial registry; specific MCH services require HMIS/project data",
+                })
+            if rows:
+                frames.append(pd.DataFrame(rows))
+        except Exception:
+            continue
+    if not frames:
+        return pd.DataFrame(), "online registry unavailable"
+    out = pd.concat(frames, ignore_index=True, sort=False)
+    out = _valid_lat_lon(out)
+    out = out[out["FacilityName"].ne("")].copy()
+    out["REGION_CODE"] = out["FacilityID"].astype(str)
+    out["REGION_NAME"] = out["FacilityName"]
+    out["ADMIN1"] = out["ParentArea"]
+    out = out.drop_duplicates(subset=["FacilityName","rep_lat","rep_lon"]).reset_index(drop=True)
+    return out, "/".join(sorted(set(statuses))) if statuses else "online"
+
+
+@st.cache_data(show_spinner=False)
+def zambia_facilities_project(district):
+    if not ZAMBIA_PILOT_FACILITY_XLS.exists():
+        return pd.DataFrame()
+    frames = []
+    try:
+        xls = pd.ExcelFile(ZAMBIA_PILOT_FACILITY_XLS)
+    except Exception:
+        return pd.DataFrame()
+    for sheet in xls.sheet_names:
+        parsed = pd.DataFrame()
+        for header in range(0, 8):
+            try:
+                candidate = pd.read_excel(ZAMBIA_PILOT_FACILITY_XLS, sheet_name=sheet, header=header)
+                parsed = _standardise_project_facilities(candidate, district_hint=sheet)
+                if not parsed.empty:
+                    break
+            except Exception:
+                continue
+        if not parsed.empty:
+            frames.append(parsed)
+    if not frames:
+        return pd.DataFrame()
+    out = pd.concat(frames, ignore_index=True, sort=False)
+    target = _text_key(district)
+    aliases = {target}
+    if target == "sinazongwe": aliases.add("senazongwe")
+    keep = out["ParentArea"].map(_text_key).isin(aliases)
+    if keep.any():
+        out = out.loc[keep].copy()
+    out = out.drop_duplicates(subset=["FacilityName","rep_lat","rep_lon"]).reset_index(drop=True)
+    return out
+
+
+def _record_list(payload):
+    if isinstance(payload, list):
+        return payload
+    if not isinstance(payload, dict):
+        return []
+    for key in ("estabelecimentos","data","Data","results","items"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return value
+    return []
+
+
+def _one_flag(value):
+    try:
+        return int(float(value)) == 1
+    except Exception:
+        return str(value).strip().casefold() in {"sim","yes","true","1"}
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def brazil_facilities_online(region_code, municipality_name):
+    code = re.sub(r"\D", "", str(region_code))
+    candidates = []
+    if len(code) >= 6:
+        candidates.append(code[:6])
+    if code and code not in candidates:
+        candidates.append(code)
+    all_rows, statuses = [], []
+    for mun_code in candidates:
+        seen_page_signature = set()
+        rows_for_code = []
+        for page in range(0, 100):
+            params = {"codigo_municipio": mun_code, "status": 1, "limit": 20, "offset": page}
+            try:
+                payload, status = cached_json(BRAZIL_CNES_ENDPOINT, params, 86400, 45)
+                statuses.append(status)
+            except Exception:
+                break
+            rows = _record_list(payload)
+            if not rows:
+                break
+            sig = tuple(str(r.get("codigo_cnes") or r.get("codigo_estabelecimento_saude") or "") for r in rows[:3])
+            if sig and sig in seen_page_signature:
+                break
+            seen_page_signature.add(sig)
+            rows_for_code.extend(rows)
+            if len(rows) < 20:
+                break
+        if rows_for_code:
+            all_rows = rows_for_code
+            break
+    if not all_rows:
+        return pd.DataFrame(), "CNES registry unavailable"
+    rows = []
+    for r in all_rows:
+        name = r.get("nome_fantasia") or r.get("nome_razao_social") or ""
+        lat = r.get("latitude_estabelecimento_decimo_grau") or r.get("latitude")
+        lon = r.get("longitude_estabelecimento_decimo_grau") or r.get("longitude")
+        code_type = r.get("codigo_tipo_unidade")
+        ftype = r.get("descricao_tipo_unidade") or r.get("descricao_nivel_hierarquia") or (f"CNES type {code_type}" if code_type not in (None,"") else "Health facility")
+        obst = _one_flag(r.get("estabelecimento_possui_centro_obstetrico"))
+        neo = _one_flag(r.get("estabelecimento_possui_centro_neonatal"))
+        hosp = _one_flag(r.get("estabelecimento_possui_atendimento_hospitalar"))
+        name_key = _text_key(name)
+        mch_name = any(token in name_key for token in ("matern","obstetr","neonat","pediatr","crianca","mulher"))
+        services = []
+        if obst: services.append("obstetric centre")
+        if neo: services.append("neonatal centre")
+        if hosp: services.append("hospital care")
+        rows.append({
+            "FacilityID": str(r.get("codigo_cnes") or r.get("codigo_estabelecimento_saude") or ""),
+            "FacilityName": str(name).strip(),
+            "FacilityType": str(ftype).strip(),
+            "ParentArea": municipality_name,
+            "Country": "Brazil",
+            "rep_lat": lat,
+            "rep_lon": lon,
+            "Source": "CNES / DATASUS OpenDataSUS",
+            "SourceURL": BRAZIL_CNES_SOURCE_URL,
+            "MCHPriority": bool(obst or neo or hosp or mch_name),
+            "MCHServices": ", ".join(services) if services else "CNES facility profile; specific MCH service availability should be checked before operational use",
+            "RegistryUpdated": str(r.get("data_atualizacao") or ""),
+        })
+    out = pd.DataFrame(rows)
+    out = _valid_lat_lon(out)
+    out = out[out["FacilityName"].ne("")].copy()
+    out["REGION_CODE"] = "FAC-BR-CNES-" + out["FacilityID"].astype(str)
+    out["REGION_NAME"] = out["FacilityName"]
+    out["ADMIN1"] = out["ParentArea"]
+    out = out.drop_duplicates(subset=["FacilityID"]).reset_index(drop=True)
+    return out, "/".join(sorted(set(statuses))) if statuses else "online"
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def facilities_for_area(country, focus, region_code):
+    if (country, focus) not in PILOT:
+        return pd.DataFrame(), "Facility drill-down is currently configured for the four REACH pilot areas."
+    if country == "Zambia":
+        project = zambia_facilities_project(focus)
+        online, online_status = zambia_facilities_online(focus)
+        frames = []
+        if not project.empty:
+            frames.append(project)
+        if not online.empty:
+            frames.append(online)
+        if not frames:
+            return pd.DataFrame(), online_status
+        out = pd.concat(frames, ignore_index=True, sort=False)
+        out["_name_key"] = out["FacilityName"].map(_text_key)
+        # Prefer project records when the same named facility appears in both sources.
+        out["_priority"] = out["Source"].eq("REACH project facility file").astype(int)
+        out = out.sort_values(["_name_key","_priority"], ascending=[True,False]).drop_duplicates("_name_key", keep="first")
+        out = out.drop(columns=["_name_key","_priority"]).reset_index(drop=True)
+        return out, f"REACH project file + Zambia NSDI ({online_status})" if not online.empty and not project.empty else ("REACH project facility file" if not project.empty else f"Zambia NSDI ({online_status})")
+    return brazil_facilities_online(region_code, focus)
+
+
+@st.cache_data(show_spinner=False)
+def load_pilot_hmis_context():
+    if not ZAMBIA_PILOT_HMIS_CSV.exists():
+        return pd.DataFrame()
+    try:
+        return pd.read_csv(ZAMBIA_PILOT_HMIS_CSV)
+    except Exception:
+        return pd.DataFrame()
+
+
+def safe_file_part(value):
+    x = unicodedata.normalize("NFKD", str(value)).encode("ascii", "ignore").decode("ascii")
+    x = re.sub(r"[^A-Za-z0-9._-]+", "_", x).strip("_")
+    return x[:90] or "area"
+
+
+def facility_screen_subset(facilities, selected_code=None):
+    if facilities is None or facilities.empty:
+        return pd.DataFrame(), False
+    f = facilities.copy()
+    limited = False
+    if len(f) > FACILITY_SCREEN_SOFT_LIMIT:
+        priority = f[f.get("MCHPriority", False).fillna(False).astype(bool)].copy() if "MCHPriority" in f else pd.DataFrame()
+        if not priority.empty:
+            f = priority
+        if len(f) > FACILITY_SCREEN_SOFT_LIMIT:
+            f = f.sort_values(["FacilityName","FacilityID"]).head(FACILITY_SCREEN_SOFT_LIMIT).copy()
+            limited = True
+    if selected_code is not None and selected_code not in set(f["REGION_CODE"].astype(str)):
+        selected = facilities[facilities["REGION_CODE"].astype(str) == str(selected_code)]
+        if not selected.empty:
+            f = pd.concat([f, selected], ignore_index=True, sort=False).drop_duplicates("REGION_CODE")
+    return f.reset_index(drop=True), limited
+
+
+def facility_forecast_figure(parent_geo, parent_code, facility_values, selected_code, hazard, horizon, map_mode, period, source_label, basemap_name):
+    df = facility_values.copy()
+    unit = unit_for(hazard, horizon, map_mode)
+    risk_mode = ("risk" in map_mode.lower()) or ("Probabilistic" in map_mode) or hazard.startswith("Compound")
+    vals = pd.to_numeric(df["value"], errors="coerce")
+    if risk_mode:
+        colorscale = [[0.00,"#2E7D32"],[0.10,"#7CB342"],[0.30,"#F9A825"],[0.50,"#EF6C00"],[0.70,"#C62828"],[0.85,"#6A1B9A"],[1.00,"#6A1B9A"]]
+        cmin, cmax = 0, 100
+    else:
+        finite = vals.dropna()
+        if horizon in ("Sub-seasonal","Seasonal"):
+            lim = max(.1, float(np.nanquantile(np.abs(finite), .98))) if len(finite) else 1.0
+            cmin, cmax = -lim, lim
+            colorscale = "RdBu_r" if hazard == "Heatwave" else "RdBu"
+        else:
+            cmin = float(finite.quantile(.02)) if len(finite) else 0.0
+            cmax = float(finite.quantile(.98)) if len(finite) else 1.0
+            if cmax <= cmin: cmax = cmin + 1.0
+            colorscale = "YlOrRd" if hazard == "Heatwave" else "Blues"
+    df["VALUE_DISPLAY"] = [fmt(v, unit) for v in vals]
+    df["TYPE_DISPLAY"] = df.get("FacilityType", "Health facility").fillna("Health facility").astype(str)
+    df["SOURCE_DISPLAY"] = df.get("Source", "Facility registry").fillna("Facility registry").astype(str)
+    custom = np.stack([df["FacilityName"].astype(str),df["TYPE_DISPLAY"],df["VALUE_DISPLAY"],df["SOURCE_DISPLAY"]],axis=1)
+    fig = go.Figure()
+    features = [x for x in parent_geo.get("features",[]) if str(x.get("properties",{}).get("REGION_CODE")) == str(parent_code)]
+    if features:
+        fig.add_trace(go.Choroplethmap(
+            geojson={"type":"FeatureCollection","features":features},locations=[str(parent_code)],z=[1],featureidkey="properties.REGION_CODE",
+            colorscale=[[0,"#E2E8F0"],[1,"#E2E8F0"]],showscale=False,marker=dict(opacity=.18,line=dict(width=2,color="#334155")),hoverinfo="skip"
+        ))
+    fig.add_trace(go.Scattermap(
+        lon=df["rep_lon"],lat=df["rep_lat"],mode="markers",
+        marker=dict(size=11,color=vals,colorscale=colorscale,cmin=cmin,cmax=cmax,opacity=.92,
+                    colorbar=dict(title=unit,thickness=13,len=.62)),
+        customdata=custom,name="Health facilities",
+        hovertemplate="<b>%{customdata[0]}</b><br>%{customdata[1]}<br>Forecast: <b>%{customdata[2]}</b><br>Registry: %{customdata[3]}<extra></extra>"
+    ))
+    selected = df[df["REGION_CODE"].astype(str)==str(selected_code)] if selected_code else pd.DataFrame()
+    if not selected.empty:
+        r = selected.iloc[0]
+        fig.add_trace(go.Scattermap(lon=[r.rep_lon],lat=[r.rep_lat],mode="markers+text",text=[r.FacilityName],textposition="top center",
+                                    marker=dict(size=19,color="#F59E0B"),name="Selected facility",hovertemplate=f"<b>{r.FacilityName}</b><extra></extra>"))
+    centre, zoom = map_view_from_df(df)
+    fig.update_layout(
+        map=dict(style=BASEMAP_STYLES.get(basemap_name,"carto-voyager"),center=centre,zoom=max(zoom,7.8)),
+        height=540,margin=dict(l=0,r=0,t=50,b=28),
+        title=dict(text=f"Health-facility forecast screen · {hazard} · {period_display_label(horizon,period)}",x=.01,xanchor="left",font=dict(size=16)),
+        hoverlabel=dict(bgcolor="white",font_size=13,font_family="Arial"),legend=dict(orientation="h",y=-.04),
+    )
+    return fig
+
+
+def render_pilot_hmis_context(district):
+    h = load_pilot_hmis_context()
+    if h.empty or "district" not in h:
+        return
+    d = h[h["district"].map(_text_key) == _text_key(district)].copy()
+    if d.empty:
+        return
+    for c in ("year","anc1","anc4","idelv","pnc48h","penta3","rr_anc","rr_idelv","rr_vacc","total_facilities","total_beds"):
+        if c in d: d[c] = pd.to_numeric(d[c], errors="coerce")
+    latest_year = int(d["year"].dropna().max()) if "year" in d and d["year"].notna().any() else None
+    st.markdown("#### District HMIS context")
+    st.caption("District-level HMIS context from the uploaded REACH dataset. These values are not attributed to an individual facility and are not used to manufacture a facility readiness score.")
+    if latest_year is not None:
+        y = d[d["year"]==latest_year]
+        metrics = [("ANC1", "anc1"),("ANC4", "anc4"),("Institutional deliveries", "idelv"),("PNC within 48 h", "pnc48h"),("Penta3", "penta3")]
+        cols = st.columns(len(metrics))
+        for col,(label,key) in zip(cols,metrics):
+            val = y[key].sum(min_count=1) if key in y else np.nan
+            col.metric(f"{label} · {latest_year}", "—" if pd.isna(val) else f"{val:,.0f}")
+        annual = d.groupby("year",as_index=False)[[k for _,k in metrics if k in d]].sum(min_count=1)
+        if len(annual):
+            st.line_chart(annual.set_index("year"),use_container_width=True)
+        reporting = []
+        for label,key in (("ANC reporting","rr_anc"),("Delivery reporting","rr_idelv"),("Vaccination reporting","rr_vacc")):
+            if key in y and y[key].notna().any(): reporting.append(f"{label}: {y[key].mean():.1f}%")
+        if reporting: st.caption(" · ".join(reporting))
 
 
 # ---------------------------------------------------------------------------
@@ -2308,6 +2783,37 @@ if geo_error is None and not regions.empty:
         ordered=[x for x in preferred if x in focus_names]+[x for x in focus_names if x not in preferred]
         focus=st.selectbox("7 · Focus area",ordered)
 
+        # Facilities remain nested under the selected pilot district/municipality.
+        facility_registry=pd.DataFrame()
+        facility_status=""
+        facility_choice_code=None
+        selected_facility=None
+        focus_region_row=regions[regions["REGION_NAME"]==focus].iloc[0]
+        if (country,focus) in PILOT:
+            st.markdown("#### Health-facility drill-down")
+            with st.spinner("Loading health-facility registry..."):
+                facility_registry,facility_status=facilities_for_area(country,focus,str(focus_region_row.REGION_CODE))
+            if not facility_registry.empty:
+                facility_registry=facility_registry.sort_values(["FacilityName","FacilityType"]).reset_index(drop=True)
+                label_map={}
+                for r in facility_registry.itertuples():
+                    type_txt=f" · {r.FacilityType}" if str(getattr(r,"FacilityType","")).strip() else ""
+                    label_map[str(r.REGION_CODE)]=f"{r.FacilityName}{type_txt}"
+                options=[FACILITY_OVERVIEW_OPTION]+facility_registry["REGION_CODE"].astype(str).tolist()
+                facility_choice=st.selectbox(
+                    "8 · Health facility",options,
+                    format_func=lambda x: x if x==FACILITY_OVERVIEW_OPTION else label_map.get(str(x),str(x)),
+                    help="The district/municipality remains the parent geography. Select a facility to move the point-specific forecast to that facility's coordinates."
+                )
+                if facility_choice!=FACILITY_OVERVIEW_OPTION:
+                    facility_choice_code=str(facility_choice)
+                    selected_facility=facility_registry[facility_registry["REGION_CODE"].astype(str)==facility_choice_code].iloc[0]
+                st.caption(f"{len(facility_registry):,} mapped facilities available under {focus} · registry status: {facility_status}.")
+            else:
+                st.warning(f"Facility registry is temporarily unavailable for {focus}. The district/municipality forecast remains fully available. ({facility_status})")
+        else:
+            st.caption("Facility drill-down is currently enabled for the four REACH pilot areas: Senanga, Sinazongwe, Recife and Palmares.")
+
         st.markdown("#### Map display")
         basemap_name=st.selectbox(
             "Background map",list(BASEMAP_STYLES),
@@ -2401,9 +2907,101 @@ if geo_error is None and not regions.empty:
             st.caption(f"{focus}: {risk_label(fv)} · highest area: {maxrow.REGION_NAME if maxrow is not None else '—'} ({risk_label(sm['max'])}).")
 
     # -----------------------------------------------------------------------
-    # Focus tabs: time series / GloFAS / climate drivers / briefing
+    # Facility-level hazard/exposure screen nested under the selected pilot area
     # -----------------------------------------------------------------------
-    meta=regions[regions.REGION_NAME==focus].iloc[0]
+    facility_forecast_df=pd.DataFrame()
+    selected_facility_value=np.nan
+    selected_facility_unit=unit_for(hazard,horizon,mode)
+    facility_screen_limited=False
+    if not facility_registry.empty:
+        facility_input,facility_screen_limited=facility_screen_subset(facility_registry,facility_choice_code)
+        if not facility_input.empty:
+            try:
+                with st.spinner(f"Calculating {len(facility_input):,} facility-level forecast signals within {focus}..."):
+                    facility_forecast_df,facility_forecast_status,_facility_payload=build_map_values(
+                        facility_input,hazard,horizon,period,mode,det_source,ensemble_system,temp_threshold,rain_threshold
+                    )
+                st.markdown('<div class="section">Health-facility forecast drill-down</div>',unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="facility-note"><b>{focus} remains the parent district/municipality.</b> '
+                    f'The facility layer evaluates the selected forecast at mapped facility coordinates. '
+                    f'This is a <b>hazard/exposure screen</b>; it becomes an operational facility-risk assessment only when access, power, WASH, staffing, cold-chain or other readiness data are explicitly added.</div>',
+                    unsafe_allow_html=True
+                )
+                if facility_screen_limited:
+                    st.warning(
+                        f"The registry contains more than {FACILITY_SCREEN_SOFT_LIMIT} mapped facilities. "
+                        "To protect the public forecast APIs, the comparison screen uses the MCH/hospital-priority subset and a capped set; the selected facility is always retained."
+                    )
+                facility_forecast_df["ForecastDisplay"]=[fmt(v,selected_facility_unit) for v in pd.to_numeric(facility_forecast_df["value"],errors="coerce")]
+                if selected_facility_unit=="%":
+                    facility_forecast_df["SignalClass"]=pd.to_numeric(facility_forecast_df["value"],errors="coerce").map(risk_label)
+                else:
+                    facility_forecast_df["SignalClass"]="Physical forecast / anomaly"
+                drought_physical=(hazard=="Drought / dry anomaly" and horizon in ("Sub-seasonal","Seasonal") and "risk" not in mode.lower())
+                facility_forecast_df=facility_forecast_df.sort_values("value",ascending=drought_physical,na_position="last").reset_index(drop=True)
+                facility_forecast_df.insert(0,"Rank",np.arange(1,len(facility_forecast_df)+1))
+                if facility_choice_code:
+                    sel=facility_forecast_df[facility_forecast_df["REGION_CODE"].astype(str)==str(facility_choice_code)]
+                    if not sel.empty:
+                        selected_facility_value=float(sel.iloc[0]["value"]) if pd.notna(sel.iloc[0]["value"]) else np.nan
+                top_facility=facility_forecast_df.iloc[0] if len(facility_forecast_df) else None
+                fm1,fm2,fm3,fm4=st.columns(4)
+                fm1.metric("Facilities screened",f"{len(facility_forecast_df):,}")
+                fm2.metric("Selected facility",selected_facility.FacilityName if selected_facility is not None else "Overview")
+                fm3.metric("Selected signal",fmt(selected_facility_value,selected_facility_unit) if selected_facility is not None else "—")
+                fm4.metric("Highest hazard signal",top_facility.FacilityName if top_facility is not None else "—")
+                if drought_physical:
+                    st.caption("For a physical drought/dry-anomaly view, more-negative precipitation anomaly indicates a drier signal; the table is therefore ordered from most negative upward.")
+                elif selected_facility_unit!="%":
+                    st.caption("For physical heat, rainfall and discharge views, larger values generally indicate greater hazard magnitude. This is not a readiness or service-disruption score.")
+
+                fleft,fright=st.columns([1.55,1.0],gap="large")
+                with fleft:
+                    st.plotly_chart(
+                        facility_forecast_figure(geo,str(focus_region_row.REGION_CODE),facility_forecast_df,facility_choice_code,hazard,horizon,mode,period,
+                                                 det_source if horizon in ("Short range","Medium range") and hazard!="Flood – river discharge (GloFAS)" else ("GloFAS" if hazard=="Flood – river discharge (GloFAS)" else "ECMWF EC46 / SEAS5"),
+                                                 basemap_name),
+                        use_container_width=True,config={"displayModeBar":True,"scrollZoom":True,"responsive":True}
+                    )
+                with fright:
+                    table_cols=[c for c in ["Rank","FacilityName","FacilityType","ForecastDisplay","SignalClass","Source"] if c in facility_forecast_df]
+                    st.dataframe(facility_forecast_df[table_cols].head(35),hide_index=True,use_container_width=True,height=520)
+                st.download_button(
+                    "Download facility forecast/exposure CSV",
+                    facility_forecast_df.to_csv(index=False).encode("utf-8"),
+                    file_name=f"REACH_Facility_Forecast_{country}_{safe_file_part(focus)}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                    mime="text/csv",use_container_width=True,key="download_facility_forecast_screen"
+                )
+                if country=="Zambia":
+                    with st.expander("District HMIS context · uploaded REACH data",expanded=False):
+                        render_pilot_hmis_context(focus)
+            except Exception as exc:
+                st.warning(f"Facility comparison screen could not be calculated for this view: {exc}. A selected facility can still use its point location in the detailed tabs below.")
+
+    # -----------------------------------------------------------------------
+    # Focus tabs: point-specific time series / hydrology / drivers / briefing
+    # -----------------------------------------------------------------------
+    meta=regions[regions.REGION_NAME==focus].iloc[0].copy()
+    analysis_label=focus
+    analysis_level="District" if country=="Zambia" else "Municipality"
+    analysis_facility_id=""
+    analysis_facility_type=""
+    analysis_registry_source=""
+    if selected_facility is not None:
+        meta["rep_lat"]=float(selected_facility.rep_lat)
+        meta["rep_lon"]=float(selected_facility.rep_lon)
+        analysis_label=str(selected_facility.FacilityName)
+        analysis_level="Health facility"
+        analysis_facility_id=str(selected_facility.FacilityID)
+        analysis_facility_type=str(selected_facility.FacilityType)
+        analysis_registry_source=str(selected_facility.Source)
+        st.markdown(
+            f'<div class="facility-focus"><b>Facility forecast focus:</b> {analysis_label} · {analysis_facility_type} · '
+            f'parent area: {focus} · coordinates: {float(meta.rep_lat):.5f}, {float(meta.rep_lon):.5f} · registry: {analysis_registry_source}. '
+            f'The detailed forecast tabs below now use the facility coordinates.</div>',unsafe_allow_html=True
+        )
+    analysis_slug=safe_file_part(analysis_label)
     tabs=st.tabs(["Time series & uncertainty","River hydrology","Climate drivers","Decision-maker briefing","Documentation · return periods · SDM","Downloads · CSV / Stella","Forecast verification · REACH pilots"])
 
     focus_probs={}
@@ -2421,7 +3019,7 @@ if geo_error is None and not regions.empty:
     rp_levels_main={}
 
     with tabs[0]:
-        st.markdown("### Focus-area forecast time series")
+        st.markdown(f"### Forecast time series · {analysis_label}")
         if horizon in ("Short range","Medium range") and hazard!="Flood – river discharge (GloFAS)":
             try:
                 tx90,p95,_=focus_baseline(meta.rep_lat,meta.rep_lon)
@@ -2435,7 +3033,9 @@ if geo_error is None and not regions.empty:
                         ts_idx = t.index.union(p.index).sort_values()
                         ts_export = pd.DataFrame({"Date": ts_idx})
                         ts_export["Country"] = country
-                        ts_export["Area"] = focus
+                        ts_export["Area"] = analysis_label
+                        ts_export["ParentArea"] = focus
+                        ts_export["AnalysisLevel"] = analysis_level
                         ts_export["ForecastSystem"] = system
                         if not t.empty:
                             ts_export["Tmax_P10_C"] = t.reindex(ts_idx).quantile(.10,axis=1).to_numpy()
@@ -2499,8 +3099,17 @@ if geo_error is None and not regions.empty:
             except Exception as exc:
                 st.warning(f"Focus ensemble/time-series data unavailable: {exc}")
 
-        elif horizon in ("Sub-seasonal","Seasonal") and "long" in payload:
-            x=payload["long"].get(str(meta.REGION_CODE),{})
+        elif horizon in ("Sub-seasonal","Seasonal"):
+            if selected_facility is not None:
+                facility_point_record={
+                    "REGION_CODE":str(facility_choice_code),"REGION_NAME":analysis_label,"ADMIN1":focus,
+                    "rep_lat":float(meta.rep_lat),"rep_lon":float(meta.rep_lon)
+                }
+                focus_long_data,_focus_long_status=regional_long([facility_point_record])
+                x=focus_long_data.get(str(facility_choice_code),{})
+            else:
+                focus_long_data=payload.get("long",{}) if isinstance(payload,dict) else {}
+                x=focus_long_data.get(str(meta.REGION_CODE),{})
             section,sl=long_slice(period)
             tm=x.get(f"{section}_temp",pd.Series(dtype=float))
             pm=x.get(f"{section}_precip",pd.Series(dtype=float))
@@ -2509,7 +3118,9 @@ if geo_error is None and not regions.empty:
             if len(long_idx):
                 long_export = pd.DataFrame({"Date": long_idx})
                 long_export["Country"] = country
-                long_export["Area"] = focus
+                long_export["Area"] = analysis_label
+                long_export["ParentArea"] = focus
+                long_export["AnalysisLevel"] = analysis_level
                 long_export["ForecastSystem"] = "ECMWF EC46/SEAS5"
                 long_export["Aggregation"] = section
                 long_export["TemperatureAnomaly_C"] = tm.reindex(long_idx).to_numpy()
@@ -2543,8 +3154,11 @@ if geo_error is None and not regions.empty:
             st.info("River discharge is not part of the selected heatwave hazard.")
         else:
             pilot=PILOT.get((country,focus))
-            seed_lat=pilot["river_seed_lat"] if pilot else float(meta.rep_lat)
-            seed_lon=pilot["river_seed_lon"] if pilot else float(meta.rep_lon)
+            if selected_facility is not None:
+                seed_lat=float(meta.rep_lat); seed_lon=float(meta.rep_lon)
+            else:
+                seed_lat=pilot["river_seed_lat"] if pilot else float(meta.rep_lat)
+                seed_lon=pilot["river_seed_lon"] if pilot else float(meta.rep_lon)
             try:
                 best,_=select_glofas_cell(seed_lat,seed_lon)
                 q,_=focus_glofas(best["used_lat"],best["used_lon"])
@@ -2555,7 +3169,9 @@ if geo_error is None and not regions.empty:
                 glofas_timeseries_export = pd.DataFrame({
                     "Date": med.index,
                     "Country": country,
-                    "Area": focus,
+                    "Area": analysis_label,
+                    "ParentArea": focus,
+                    "AnalysisLevel": analysis_level,
                     "ForecastSystem": "GloFAS",
                     "Discharge_P10_m3_s": lo.to_numpy(),
                     "Discharge_P50_m3_s": med.to_numpy(),
@@ -2679,35 +3295,48 @@ if geo_error is None and not regions.empty:
                 anomaly_variable=st.selectbox("Anomaly variable",["Temperature anomaly","Precipitation anomaly"],
                                               key="seasonal_anomaly_variable_final")
 
-            long_data=payload.get("long",{}) if isinstance(payload,dict) else {}
+            spatial_long_data=payload.get("long",{}) if isinstance(payload,dict) else {}
             long_status_for_view=map_status if "map_status" in locals() else ""
-            if not long_data:
+            if not spatial_long_data:
                 try:
                     with st.spinner("Loading seasonal anomaly fields..."):
-                        long_data,long_status_for_view=regional_long(regions.to_dict("records"))
+                        spatial_long_data,long_status_for_view=regional_long(regions.to_dict("records"))
                 except Exception as exc:
-                    long_data={}
+                    spatial_long_data={}
                     st.warning(f"Seasonal anomaly data are temporarily unavailable: {exc}")
 
-            if long_data:
-                focus_code=str(meta.REGION_CODE)
-                s_anom=_seasonal_anomaly_series(long_data,focus_code,horizon,anomaly_variable)
+            temporal_long_data=spatial_long_data
+            temporal_focus_code=str(meta.REGION_CODE)
+            if selected_facility is not None:
+                try:
+                    facility_point_record={
+                        "REGION_CODE":str(facility_choice_code),"REGION_NAME":analysis_label,"ADMIN1":focus,
+                        "rep_lat":float(meta.rep_lat),"rep_lon":float(meta.rep_lon)
+                    }
+                    temporal_long_data,_facility_long_status=regional_long([facility_point_record])
+                    temporal_focus_code=str(facility_choice_code)
+                except Exception:
+                    temporal_long_data=spatial_long_data
+                    temporal_focus_code=str(meta.REGION_CODE)
+
+            if spatial_long_data:
+                s_anom=_seasonal_anomaly_series(temporal_long_data,temporal_focus_code,horizon,anomaly_variable)
                 if s_anom.empty:
                     st.info("No anomaly series is available for the selected focus area.")
                 else:
                     valid_label=seasonal_valid_label(s_anom,horizon,period)
                     st.markdown(
                         f'<div class="hoverhint"><b>Selected forecast period:</b> {valid_label} · '
-                        f'<b>Variable:</b> {anomaly_variable} · <b>Focus area:</b> {focus}</div>',
+                        f'<b>Variable:</b> {anomaly_variable} · <b>Forecast point:</b> {analysis_label} · <b>Parent area:</b> {focus}</div>',
                         unsafe_allow_html=True
                     )
 
                     if anomaly_view in ("Temporal + spatial","Temporal only"):
                         st.markdown("#### Temporal anomaly outlook")
                         if temporal_style=="Filled anomaly time series":
-                            fig,meaning=seasonal_anomaly_filled_figure(s_anom,anomaly_variable,focus,horizon,period)
+                            fig,meaning=seasonal_anomaly_filled_figure(s_anom,anomaly_variable,analysis_label,horizon,period)
                         else:
-                            fig,meaning=seasonal_anomaly_bar_figure(s_anom,anomaly_variable,focus,horizon,period)
+                            fig,meaning=seasonal_anomaly_bar_figure(s_anom,anomaly_variable,analysis_label,horizon,period)
                         st.plotly_chart(fig,use_container_width=True)
                         sm_anom=stat_summary(s_anom)
                         unit_anom="°C" if anomaly_variable=="Temperature anomaly" else "mm"
@@ -2720,17 +3349,17 @@ if geo_error is None and not regions.empty:
                         series_export=pd.DataFrame({
                             "Date":s_anom.index,
                             "ForecastMonthOrPeriod":[pd.Timestamp(x).strftime("%B %Y") if horizon=="Seasonal" else pd.Timestamp(x).strftime("%d %b %Y") for x in s_anom.index],
-                            "Country":country,"Area":focus,"Horizon":horizon,"Variable":anomaly_variable,
+                            "Country":country,"Area":analysis_label,"ParentArea":focus,"AnalysisLevel":analysis_level,"Horizon":horizon,"Variable":anomaly_variable,
                             "AnomalyValue":s_anom.to_numpy(float),"Unit":unit_anom,
                             "Source":"ECMWF EC46 / SEAS5 via Open-Meteo seasonal API"
                         })
                         st.download_button("Download temporal anomaly CSV",series_export.to_csv(index=False).encode("utf-8"),
-                                           file_name=f"REACH_Anomaly_Temporal_{country}_{focus}_{anomaly_variable.replace(' ','_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                                           file_name=f"REACH_Anomaly_Temporal_{country}_{analysis_slug}_{anomaly_variable.replace(' ','_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
                                            mime="text/csv",use_container_width=True,key="download_temporal_anomaly_csv")
 
                     if anomaly_view in ("Temporal + spatial","Spatial only"):
                         st.markdown("#### Spatial anomaly outlook")
-                        anomaly_map_df=seasonal_anomaly_map_data(regions,long_data,period,anomaly_variable)
+                        anomaly_map_df=seasonal_anomaly_map_data(regions,spatial_long_data,period,anomaly_variable)
                         fig,meaning=seasonal_anomaly_map_figure(
                             geo,anomaly_map_df,anomaly_variable,focus,horizon,period,"ECMWF EC46 / SEAS5",
                             basemap_name=basemap_name,layer_opacity=layer_opacity,valid_label=valid_label
@@ -2823,9 +3452,9 @@ if geo_error is None and not regions.empty:
                 window=f"The selected forecast/outlook window runs from {fmt_dt(timing.get('start'),horizon in ('Short range','Medium range'))} to {fmt_dt(timing.get('end'),horizon in ('Short range','Medium range'))}."
             peak=""
             if timing.get("heat_peak_time") is not None:
-                peak=f"Peak hourly temperature in {focus} is {fmt(timing.get('heat_peak',np.nan),'°C')} at {fmt_dt(timing.get('heat_peak_time'))}."
+                peak=f"Peak hourly temperature at {analysis_label} is {fmt(timing.get('heat_peak',np.nan),'°C')} at {fmt_dt(timing.get('heat_peak_time'))}."
             if timing.get("rain72_start") is not None:
-                peak+=f" The wettest 72-hour window in {focus} is {fmt_dt(timing.get('rain72_start'))} to {fmt_dt(timing.get('rain72_end'))}, with {fmt(timing.get('rain72',np.nan),'mm / 72 h')}."
+                peak+=f" The wettest 72-hour window at {analysis_label} is {fmt_dt(timing.get('rain72_start'))} to {fmt_dt(timing.get('rain72_end'))}, with {fmt(timing.get('rain72',np.nan),'mm / 72 h')}."
             if horizon in ("Sub-seasonal","Seasonal") and timing.get("peak_time") is not None:
                 peak=f"The strongest selected anomaly period is around {fmt_dt(timing.get('peak_time'),False)} ({fmt(timing.get('peak_value',np.nan),unit)}). This is not an exact event date."
 
@@ -2849,20 +3478,29 @@ if geo_error is None and not regions.empty:
             if enso_info:drivers+=f" ENSO background: {enso_info['phase']} ({enso_info['prob']:.0f}% for {enso_info['season']})."
             if country=="Zambia" and dmi_info:drivers+=f" DMI {dmi_info['value']:+.2f} °C ({dmi_info['phase']})."
             if country=="Brazil" and atlantic_info:drivers+=f" Tropical Atlantic TNA−TSA gradient {atlantic_info['gradient']:+.2f} °C."
-            drivers+=" These indices provide seasonal context rather than direct district hazard probabilities."
+            drivers+=" These indices provide seasonal context rather than direct local hazard probabilities."
 
             hyd=""
             if glofas_info and glofas_info.get("valid"):
-                hyd=f" GloFAS focus-area median discharge is {fmt(glofas_info['median'],'m³/s')}, maximum {fmt(glofas_info['max'],'m³/s')}, peak date {fmt_dt(glofas_info['peak'],False)}, with P(Q>Q2) {glofas_info['p2']:.0f}%."
+                hyd=f" GloFAS point-specific median discharge is {fmt(glofas_info['median'],'m³/s')}, maximum {fmt(glofas_info['max'],'m³/s')}, peak date {fmt_dt(glofas_info['peak'],False)}, with P(Q>Q2) {glofas_info['p2']:.0f}%."
             elif glofas_info and not glofas_info.get("valid"):
                 hyd=" The selected GloFAS river cell failed the sanity check and should not be presented as final river guidance."
 
+            facility_brief=""
+            if selected_facility is not None:
+                facility_signal=(fmt(selected_facility_value,selected_facility_unit) if np.isfinite(selected_facility_value) else "comparison value unavailable")
+                facility_brief=(
+                    f"**Facility drill-down:** {analysis_label} ({analysis_facility_type}) is nested under {focus}. "
+                    f"The facility-coordinate hazard/exposure signal is {facility_signal}. "
+                    "This does not by itself represent operational readiness or service-disruption risk.\n\n"
+                )
             base_summary=(
                 f"**{country} · {horizon} · {hazard}**\n\n"
                 f"**Forecast window:** {window}\n\n"
                 f"**Spatial result:** Across {len(map_df)} areas, the selected map value ranges from {fmt(sm['min'],unit)} to {fmt(sm['max'],unit)}, "
-                f"with mean {fmt(sm['mean'],unit)} and median {fmt(sm['median'],unit)}. {focus} is {fmt(fv,unit)}. "
+                f"with mean {fmt(sm['mean'],unit)} and median {fmt(sm['median'],unit)}. Parent area {focus} is {fmt(fv,unit)}. "
                 f"The highest mapped signal is in **{max_area}**.\n\n"
+                f"{facility_brief}"
                 f"**Timing:** {peak}\n\n"
                 f"**Interpretation:** {interpretation}{drivers}{hyd}\n\n"
                 f"**Health-system implication:** {HORIZONS[horizon]['action']}"
@@ -2878,7 +3516,7 @@ if geo_error is None and not regions.empty:
                 except Exception as exc:st.warning(f"Local AI unavailable: {exc}")
         with b2:
             editable=st.text_area("Editable briefing",value=st.session_state.get("v5_ai",base_summary) if engine.startswith("Optional") else base_summary,height=260)
-            st.download_button("Download briefing",editable.encode(),file_name=f"REACH_EWS_{country}_{focus}_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",mime="text/plain",use_container_width=True)
+            st.download_button("Download briefing",editable.encode(),file_name=f"REACH_EWS_{country}_{analysis_slug}_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",mime="text/plain",use_container_width=True)
 
 
     with tabs[4]:
@@ -2915,8 +3553,11 @@ if geo_error is None and not regions.empty:
         try:
             if hazard == "Flood – river discharge (GloFAS)":
                 pilot = PILOT.get((country, focus))
-                seed_lat = pilot["river_seed_lat"] if pilot else float(meta.rep_lat)
-                seed_lon = pilot["river_seed_lon"] if pilot else float(meta.rep_lon)
+                if selected_facility is not None:
+                    seed_lat=float(meta.rep_lat); seed_lon=float(meta.rep_lon)
+                else:
+                    seed_lat = pilot["river_seed_lat"] if pilot else float(meta.rep_lat)
+                    seed_lon = pilot["river_seed_lon"] if pilot else float(meta.rep_lon)
                 best, _ = select_glofas_cell(seed_lat, seed_lon)
                 q, _ = focus_glofas(best["used_lat"], best["used_lon"])
                 hist, _ = focus_glofas_history(best["used_lat"], best["used_lon"])
@@ -3062,13 +3703,18 @@ if geo_error is None and not regions.empty:
                 )
 
                 sdm_df = sdm_rp_row(
-                    country, focus, hazard, horizon, period, rp_kind, rp_result,
+                    country, analysis_label, hazard, horizon, period, rp_kind, rp_result,
                     trigger_rp, trigger_probability, rp_unit, rp_levels_main, rp_start, rp_end
                 )
+                sdm_df["ParentArea"] = focus
+                sdm_df["AnalysisLevel"] = analysis_level
+                sdm_df["FacilityID"] = analysis_facility_id
+                sdm_df["FacilityType"] = analysis_facility_type
+                sdm_df["FacilityRegistrySource"] = analysis_registry_source
                 st.download_button(
                     "Download Stella/SDM return-period hand-off CSV",
                     sdm_df.to_csv(index=False).encode("utf-8"),
-                    file_name=f"REACH_SDM_RP_handoff_{country}_{focus}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                    file_name=f"REACH_SDM_RP_handoff_{country}_{analysis_slug}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
                     mime="text/csv",
                     use_container_width=True,
                     key="download_sdm_rp"
@@ -3076,15 +3722,15 @@ if geo_error is None and not regions.empty:
 
                 threshold_exports=[]
                 if not rp_table_daily.empty:
-                    xx=rp_table_daily.copy(); xx["Country"]=country; xx["Area"]=focus; xx["Forecast horizon"]=horizon; xx["Valid period"]=period; threshold_exports.append(xx)
+                    xx=rp_table_daily.copy(); xx["Country"]=country; xx["Area"]=analysis_label; xx["ParentArea"]=focus; xx["AnalysisLevel"]=analysis_level; xx["Forecast horizon"]=horizon; xx["Valid period"]=period; threshold_exports.append(xx)
                 if not rp_table_main.empty:
-                    xx=rp_table_main.copy(); xx["Country"]=country; xx["Area"]=focus; xx["Forecast horizon"]=horizon; xx["Valid period"]=period; threshold_exports.append(xx)
+                    xx=rp_table_main.copy(); xx["Country"]=country; xx["Area"]=analysis_label; xx["ParentArea"]=focus; xx["AnalysisLevel"]=analysis_level; xx["Forecast horizon"]=horizon; xx["Valid period"]=period; threshold_exports.append(xx)
                 if threshold_exports:
                     rp_export=pd.concat(threshold_exports,ignore_index=True)
                     st.download_button(
                         "Download return-level table for Stella",
                         rp_export.to_csv(index=False).encode("utf-8"),
-                        file_name=f"REACH_ReturnLevels_{country}_{focus}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                        file_name=f"REACH_ReturnLevels_{country}_{analysis_slug}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
                         mime="text/csv",use_container_width=True,key="download_return_levels"
                     )
         except Exception as exc:
@@ -3363,7 +4009,8 @@ Historical analogue relationships are supporting context and should not be treat
 
         lead_days = _lead_days(valid_start)
         selected_unit = unit_for(hazard,horizon,mode)
-        selected_value = fv if "fv" in locals() else np.nan
+        parent_area_value = fv if "fv" in locals() else np.nan
+        selected_value = selected_facility_value if (selected_facility is not None and np.isfinite(selected_facility_value)) else parent_area_value
         selected_risk = risk_label(selected_value) if selected_unit=="%" and np.isfinite(selected_value) else ""
         highest_area = maxrow.REGION_NAME if ("maxrow" in locals() and maxrow is not None) else ""
         highest_value = sm["max"] if ("sm" in locals() and isinstance(sm,dict)) else np.nan
@@ -3386,8 +4033,12 @@ Historical analogue relationships are supporting context and should not be treat
         summary_row = {
             "RetrievedUTC": now_utc.isoformat(),
             "Country": country,
-            "AdministrativeLevel": "District" if country=="Zambia" else "Municipality",
-            "Area": focus,
+            "AdministrativeLevel": analysis_level,
+            "Area": analysis_label,
+            "ParentArea": focus,
+            "FacilityID": analysis_facility_id,
+            "FacilityType": analysis_facility_type,
+            "FacilityRegistrySource": analysis_registry_source,
             "Admin1": str(meta.ADMIN1),
             "Latitude": float(meta.rep_lat),
             "Longitude": float(meta.rep_lon),
@@ -3403,6 +4054,7 @@ Historical analogue relationships are supporting context and should not be treat
             "SelectedAreaForecastValue": selected_value,
             "SelectedAreaForecastUnit": selected_unit,
             "SelectedAreaRiskClass": selected_risk,
+            "ParentAreaForecastValue": parent_area_value,
             "HighestSignalArea": highest_area,
             "HighestSignalValue": highest_value,
             "HighestSignalUnit": selected_unit,
@@ -3467,7 +4119,7 @@ Historical analogue relationships are supporting context and should not be treat
         st.download_button(
             "Download forecast summary CSV",
             summary_df.to_csv(index=False).encode("utf-8"),
-            file_name=f"REACH_Forecast_Summary_{country}_{focus}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+            file_name=f"REACH_Forecast_Summary_{country}_{analysis_slug}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
             mime="text/csv",
             use_container_width=True,
             key="download_forecast_summary_csv",
@@ -3497,7 +4149,7 @@ Historical analogue relationships are supporting context and should not be treat
                 st.info("Spatial forecast table is not available for this selection.")
 
         with cdl2:
-            st.markdown("### C · Focus-area time series")
+            st.markdown(f"### C · {'Facility' if selected_facility is not None else 'Focus-area'} time series")
             ts_frames=[x for x in focus_timeseries_exports if isinstance(x,pd.DataFrame) and not x.empty]
             if isinstance(glofas_timeseries_export,pd.DataFrame) and not glofas_timeseries_export.empty:
                 ts_frames.append(glofas_timeseries_export)
@@ -3507,13 +4159,13 @@ Historical analogue relationships are supporting context and should not be treat
                 st.download_button(
                     "Download forecast time-series CSV",
                     ts_export_all.to_csv(index=False).encode("utf-8"),
-                    file_name=f"REACH_TimeSeries_{country}_{focus}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                    file_name=f"REACH_TimeSeries_{country}_{analysis_slug}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
                     mime="text/csv",
                     use_container_width=True,
                     key="download_timeseries_centre",
                 )
             else:
-                st.info("Focus-area time-series data are not available for this selection.")
+                st.info("Time-series data are not available for this selected forecast focus.")
 
         st.markdown("### D · Return-period values and Stella/SDM inputs")
         d1,d2=st.columns(2)
@@ -3522,7 +4174,7 @@ Historical analogue relationships are supporting context and should not be treat
                 st.download_button(
                     "Download return-period threshold values CSV",
                     rp_export.to_csv(index=False).encode("utf-8"),
-                    file_name=f"REACH_ReturnLevels_{country}_{focus}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                    file_name=f"REACH_ReturnLevels_{country}_{analysis_slug}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
                     mime="text/csv",
                     use_container_width=True,
                     key="download_return_levels_centre",
@@ -3534,7 +4186,7 @@ Historical analogue relationships are supporting context and should not be treat
                 st.download_button(
                     "Download Stella/SDM hand-off CSV",
                     sdm_df.to_csv(index=False).encode("utf-8"),
-                    file_name=f"REACH_Stella_SDM_Handoff_{country}_{focus}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                    file_name=f"REACH_Stella_SDM_Handoff_{country}_{analysis_slug}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
                     mime="text/csv",
                     use_container_width=True,
                     key="download_sdm_centre",
@@ -3554,6 +4206,10 @@ Historical analogue relationships are supporting context and should not be treat
             package_files["return_period_thresholds.csv"]=rp_export.to_csv(index=False).encode("utf-8")
         if isinstance(sdm_df,pd.DataFrame) and not sdm_df.empty:
             package_files["stella_sdm_handoff.csv"]=sdm_df.to_csv(index=False).encode("utf-8")
+        if isinstance(facility_forecast_df,pd.DataFrame) and not facility_forecast_df.empty:
+            package_files["facility_forecast_exposure.csv"]=facility_forecast_df.to_csv(index=False).encode("utf-8")
+        if isinstance(facility_registry,pd.DataFrame) and not facility_registry.empty:
+            package_files["facility_registry.csv"]=facility_registry.to_csv(index=False).encode("utf-8")
 
         zip_buffer=BytesIO()
         with zipfile.ZipFile(zip_buffer,"w",zipfile.ZIP_DEFLATED) as zf:
@@ -3562,7 +4218,7 @@ Historical analogue relationships are supporting context and should not be treat
         st.download_button(
             "Download all selected CSVs as ZIP",
             zip_buffer.getvalue(),
-            file_name=f"REACH_Selected_Data_{country}_{focus}_{datetime.now().strftime('%Y%m%d_%H%M')}.zip",
+            file_name=f"REACH_Selected_Data_{country}_{analysis_slug}_{datetime.now().strftime('%Y%m%d_%H%M')}.zip",
             mime="application/zip",
             use_container_width=True,
             key="download_all_csv_zip",
@@ -3580,6 +4236,11 @@ Historical analogue relationships are supporting context and should not be treat
             "Verification remains restricted to Senanga, Sinazongwe, Recife and Palmares. "
             "The site, hazard family and verification indicator suite are linked automatically to the main dashboard selection."
         )
+        if selected_facility is not None:
+            st.info(
+                f"Facility focus is active for {analysis_label}. Historical forecast verification on this tab remains at the parent pilot-area level ({focus}); "
+                "it should not be interpreted as a facility-specific hindcast unless a matched facility observation archive is added."
+            )
 
         pilot_df=verification_pilot_sites()
         current_pilot=f"{country} · {focus}"

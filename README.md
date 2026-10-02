@@ -1,21 +1,76 @@
 # REACH Climate–Health Early Warning Data Portal
 
-**Final GitHub / Streamlit release — 30 September 2026**
+**Final GitHub / Streamlit release — 2 October 2026**  
+**Facility drill-down + high-contrast interface**
 
-This repository contains the full REACH research decision-support dashboard:
+This repository contains the full REACH climate–health research decision-support dashboard.
 
-- Zambia: 116 districts
-- Brazil: 5,572 municipalities
-- Pilot forecast verification: Senanga, Sinazongwe, Recife and Palmares
-- Heatwave, rainfall-driven flood, river-discharge flood, drought and compound hazards
+## Coverage and core functions
+
+- **Zambia:** all 116 districts
+- **Brazil:** all 5,572 municipalities
+- **REACH pilots:** Senanga, Sinazongwe, Recife and Palmares
+- heatwave, rainfall-driven flood, river-discharge flood, drought and compound hazards
+- short-, medium-, sub-seasonal and seasonal forecast workflows
 - ECMWF / NOAA model comparison
 - GloFAS river-flow diagnostics
 - ENSO/RONI, IOD/DMI and Tropical Atlantic context
-- return-period thresholds and corresponding physical values
+- return-period thresholds and physical return levels
 - Stella / SDM CSV hand-off
-- downloadable forecast, spatial, time-series and verification data
+- historical forecast verification for the four pilot areas
+- downloadable spatial, time-series, facility and verification outputs
 
-## Final verification indicators
+## Facility-level forecast drill-down
+
+The four REACH pilot areas now support a nested facility workflow:
+
+**Country → district/municipality → health facility**
+
+The district/municipality overview remains the default and parent geography. Selecting a health facility moves point-specific forecast calculations to that facility's coordinates while preserving the parent-area spatial context.
+
+For each pilot area, the dashboard can provide:
+
+- mapped health-facility locations
+- facility-specific hazard/exposure signal for the selected forecast setup
+- comparison/ranking table across mapped facilities
+- selected-facility time series and forecast diagnostics
+- facility-coordinate river-flow diagnostics where relevant
+- facility-specific return-period/SDM hand-off metadata
+- downloadable facility forecast/exposure CSV and registry CSV
+
+### Facility data sources
+
+**Zambia**
+- bundled REACH pilot facility file for Senanga and Sinazongwe
+- public Zambia NSDI health-facility layer as an online registry/cross-check
+- bundled REACH HMIS context for Senanga and Sinazongwe (district-month context only)
+
+**Brazil**
+- public CNES/DATASUS facility registry retrieved at runtime for Recife and Palmares
+
+The public-source calls are cached. If an external registry is temporarily unavailable, the parent district/municipality forecast remains available. Zambia also retains the bundled project-facility fallback.
+
+### Important scientific interpretation
+
+The facility layer is deliberately labelled **facility-specific hazard/exposure**, not automatically **facility operational risk**. A facility operational-risk score requires explicit readiness/access inputs such as staffing, WASH, electricity/backup power, cold-chain functionality, service availability, road/access disruption or similar operational information.
+
+The bundled Zambia HMIS extract is used only as **district-level health-service context**. It is not silently assigned to individual facilities.
+
+## High-contrast modern interface
+
+The seven main analysis tabs are now filled controls with bold white text so all tabs remain visible, including:
+
+- Time series & uncertainty
+- River hydrology
+- Climate drivers
+- Decision-maker briefing
+- Documentation · return periods · SDM
+- Downloads · CSV / Stella
+- Forecast verification · REACH pilots
+
+The tab strip wraps on narrower screens. The active tab has a distinct teal/navy style and focus border. Forecast-setup selectors, radio controls, download buttons and source buttons also use filled high-contrast styles.
+
+## Verification indicators
 
 Heat:
 - Tmin, Tmean and Tmax
@@ -31,65 +86,44 @@ River discharge:
 - ensemble min / P10 / P25 / mean / P50 / P75 / P90 / max
 - Q2 / Q5 / Q10 / Q20 / Q50 / Q100 return levels and exceedance probabilities
 
-## Local preflight
+Historical verification remains at the **pilot-area** level unless a matched facility observation archive is added; selecting a facility does not manufacture facility-specific hindcast observations.
 
-Before deployment:
+## Seasonal climate visualisation
+
+The Climate drivers tab includes:
+
+- NOAA CPC 3-month ENSO outlook probabilities for La Niña / Neutral / El Niño
+- ENSO strength probabilities
+- filled RONI anomaly outlook
+- selectable temporal anomaly visualisation
+- spatial anomaly maps by district/municipality
+- temperature anomaly in °C and precipitation anomaly in mm
+- downloadable focus-area/facility time series and spatial anomaly values
+
+Basemap changes affect only visual context; forecast calculations are unchanged.
+
+## Repository files added for the facility revision
+
+- `zambia_pilot_facility_details.xls` — REACH pilot facility details used as a Zambia project fallback/enrichment source
+- `zambia_pilot_hmis_context.csv` — compact Senanga/Sinazongwe district HMIS context derived from the uploaded dataset
+- `DATA_SOURCES.md` — provenance and interpretation rules for facility/HMIS integration
+
+`xlrd` is included in `requirements.txt` so the legacy `.xls` facility workbook can be read on Streamlit Cloud.
+
+## Local preflight
 
 ```powershell
 py preflight_check.py
-```
-
-Then:
-
-```powershell
 py -m pip install -r requirements.txt
 py -m streamlit run streamlit_app.py
 ```
 
 ## Streamlit Community Cloud
 
-Use `streamlit_app.py` as the app entry point.
+Use `streamlit_app.py` as the app entry point and Python **3.12** in Advanced settings. No API keys are required for the current public-source configuration.
 
-Select Python **3.12** in Streamlit's Advanced settings.
-
-No API keys are required for the current public-source configuration.
-
-### Optional Ollama briefing rewrite
-The transparent verified briefing works normally on Streamlit Cloud.
-The optional local Ollama rewrite is designed for a computer running Ollama locally and will not normally work on Streamlit Community Cloud without a separately hosted AI endpoint.
+The optional local Ollama briefing rewrite is intended for a computer running Ollama locally and will not normally work on Streamlit Community Cloud without a separately hosted AI endpoint. The transparent verified briefing remains available without Ollama.
 
 ## Scientific status
 
-This is a REACH research decision-support prototype. Official national warning services remain authoritative.
-
-
-## Seasonal climate visualisation
-
-The Climate drivers tab now includes:
-
-- NOAA CPC 3-month ENSO outlook bars for **La Niña / Neutral / El Niño**
-- exact ENSO probability values and dominant phase for each outlook season
-- a user-selectable **Bar plot of anomalies**
-- a user-selectable **Spatial anomaly map**
-- temperature anomaly in °C
-- precipitation anomaly in mm
-- CSV download for ENSO, focus-area anomaly series and spatial anomaly values
-
-The spatial anomaly map uses district/municipality shading rather than interpolating a false smooth surface between administrative centroids.
-
-
-## Final spatial + temporal visualisation upgrade
-
-- selectable Streets/places, OpenStreetMap, clean light, terrain/outdoors, satellite and satellite+streets basemaps
-- adjustable forecast-layer opacity
-- contextual MapLibre spatial forecast maps
-- horizontal map colour scales
-- calendar month labels in the seasonal valid-period selector
-- combined Temporal + spatial anomaly view
-- filled anomaly time series or bar-plot temporal style
-- temperature and precipitation anomaly maps linked to the same selected period
-- NOAA CPC ENSO phase probabilities
-- NOAA CPC ENSO strength probabilities
-- filled RONI anomaly outlook with strength thresholds and uncertainty
-
-Basemap changes affect only visual context; forecast values and calculations are unchanged.
+This is a REACH research decision-support prototype. Official national warning services remain authoritative. Facility-point outputs should be interpreted with the source, forecast horizon, spatial scale and data-availability limitations shown in the dashboard.
