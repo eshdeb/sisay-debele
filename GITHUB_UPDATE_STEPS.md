@@ -47,7 +47,7 @@ Check at minimum:
 - Forecast verification remains clearly identified as parent pilot-area verification
 
 
-## V7 checks
+## V8 checks
 
 After deployment, also confirm:
 - the top analysis tabs render as filled coloured buttons with bold white text, including the active tab
@@ -61,3 +61,6 @@ After deployment, also confirm:
 - the selected district/municipality or facility shows the 2×2 ECMWF/GFS/ERA5 historical-context comparison in Time series & uncertainty
 - ERA5 is labelled as historical climatology/threshold context for future forecasts, while actual retrospective verification remains in Forecast verification
 - the selected-data ZIP includes `facility_ecmwf_gfs_comparison.csv` when facility model comparison is available
+
+
+V8 visual check: verify facility names appear on the contour surfaces, then test one Sub-seasonal and one Seasonal pilot view to confirm the long-range facility anomaly gradient renders.

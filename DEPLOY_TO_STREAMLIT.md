@@ -52,13 +52,17 @@ The Brazil facility registry is retrieved from the public CNES/DATASUS API at ru
 Facility outputs are point-specific hazard/exposure signals. Do not label them operational facility risk unless readiness/access data are explicitly integrated.
 
 
-## V7 checks
+## V8 checks
 
 After deployment, also confirm:
-- the top analysis tabs render as filled coloured buttons with bold white text, including the active tab
-- Forecast setup selectboxes render as filled teal/navy controls rather than pale grey fields
+- the top analysis tabs render as muted filled buttons with white text and a restrained active-state highlight
+- Forecast setup selectboxes render as softer translucent teal/slate controls with larger readable text
 - Brazil facility dropdowns show facility names without unexplained numeric CNES type suffixes
 - Heatwave short/medium range shows side-by-side ECMWF and NOAA GFS facility temperature-gradient plots with labelled contour values, grouped facility bars and a model-difference map
+- every facility contour/gradient prints facility names beside point markers as well as labelled contour values
+- Sub-seasonal selections (Week 2 through Weeks 2–6) show facility temperature/precipitation anomaly gradients where relevant
+- Seasonal selections (Month 1 through Month 7 and multi-month windows) show facility temperature/precipitation anomaly gradients where relevant
+- facility bars and model-comparison figures use muted semi-transparent publication-style colours rather than saturated blue/purple fills
 - Rainfall short/medium range shows labelled facility rainfall contours when values vary spatially, grouped ECMWF/GFS bars and a model-difference map
 - Facility forecast screen includes a direct-value bar chart plus facility minimum/mean/median/maximum/range statistics
 - Spatial summary shows selected area, selected value, minimum, mean, median, maximum and mapped range

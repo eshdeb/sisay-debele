@@ -122,6 +122,12 @@ expected_text = [
     'Geographic and health-facility coverage',
     'Load / refresh live facility counts for all four REACH pilots',
     'Mapped range',
+    'facility_longrange_component_values',
+    'Facility seasonal / sub-seasonal spatial gradients',
+    'Facility names are printed beside the points',
+    'mode="markers+text"',
+    'diverging=True',
+    'facility_longrange_anomaly_components.csv',
 ]
 for text in expected_text:
     if text not in source:

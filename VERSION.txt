@@ -1,7 +1,7 @@
 REACH Climate–Health EWS
 Final GitHub / Streamlit release
 Date: 2026-10-02
-Release: V7 · Labelled facility contours + bar comparisons + coverage documentation + refined accessible UI
+Release: V8 · Facility-name contour labels + seasonal/sub-seasonal facility gradients + muted publication-style visual design
 
 Core platform retained:
 - Zambia: all 116 districts
@@ -11,20 +11,15 @@ Core platform retained:
 - heat, rainfall flood, river-discharge flood, drought and compound-hazard views
 - GloFAS, climate drivers, return periods, Stella/SDM hand-off and historical verification
 
-V7 revisions:
-- facility forecasts remain nested under the parent district/municipality
-- temperature facility gradients now use labelled contour lines with forecast values printed on the surface
-- precipitation facility gradients use labelled mm contours when facility values vary spatially; uniform fields fall back to an honest point map
-- direct facility forecast values are now visualised with bar charts in addition to maps/tables
-- ECMWF IFS HRES and NOAA GFS facility values are compared in grouped bar charts for temperature and rainfall
-- compound flood + heat views now show both temperature and precipitation model-comparison panels
-- selected district/municipality summaries now show selected value, minimum, mean, median, maximum and mapped range
-- facility summaries show minimum, mean, median, maximum and facility range within the selected parent area
-- forecast-setup controls use a softer semi-transparent teal/navy fill and larger text for readability
-- documentation now explains district/municipality versus facility values, national administrative coverage and pilot-facility coverage
-- Zambia REACH facility-detail workbook coverage is documented as 21 Senanga facilities and 32 Sinazongwe facilities; live mapped counts can differ because valid coordinates are required
-- documentation can refresh live counts for all four pilots and the Zambia national NSDI facility registry
-- decision-maker briefing explicitly reports facility range statistics when a facility is selected
+V8 revisions:
+- every facility contour/gradient plot prints facility names beside the sampled points in addition to labelled contour values
+- facility gradient visualisation is now consistent across short range, medium range, sub-seasonal (weeks 2–6) and seasonal (months 1–7) workflows
+- long-range facility gradients use physical ECMWF EC46/SEAS5 temperature and precipitation anomalies already fetched for the active facility screen; no duplicate API request is introduced
+- seasonal/sub-seasonal temperature and precipitation anomaly gradients are paired with direct facility bar charts
+- contours, markers, bars and model-comparison charts use a calmer muted publication-style palette with increased transparency
+- the main analysis tabs use muted filled colours with a restrained active-state highlight rather than bright saturated gradients
+- Forecast setup controls use softer translucent fills while retaining larger, readable selected text
+- the scientific boundary remains explicit: contour surfaces are IDW visualisations of facility point samples, not native model grids
 
 Scientific boundary:
 A facility-specific forecast is a point-specific hazard/exposure signal. A facility contour surface is an IDW visual interpolation of those point samples, not the native model grid. Operational facility risk must not be inferred unless readiness/access data such as staffing, WASH, electricity, cold chain, service availability or access disruption are explicitly integrated.

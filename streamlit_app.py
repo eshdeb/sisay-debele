@@ -144,47 +144,49 @@ button[data-baseweb="tab"] *{
 }
 [data-testid="stTabs"] [role="tab"]:hover,
 button[data-baseweb="tab"]:hover{
-  filter:brightness(1.10) !important; transform:translateY(-1px) !important;
+  filter:brightness(1.03) !important; transform:translateY(-1px) !important;
 }
 [data-testid="stTabs"] [role="tab"][aria-selected="true"],
 button[data-baseweb="tab"][aria-selected="true"]{
-  background:#0F766E !important;
-  background-image:linear-gradient(135deg,#075985 0%,#0F766E 100%) !important;
-  color:#FFFFFF !important; border:2px solid #FBBF24 !important;
-  box-shadow:0 7px 18px rgba(7,89,133,.28) !important;
+  background:#496C72 !important;
+  background-image:none !important;
+  color:#FFFFFF !important; border:1px solid #C4A56A !important;
+  box-shadow:0 4px 12px rgba(55,78,84,.18) !important;
 }
 [data-testid="stTabs"] [data-baseweb="tab-highlight"],
 [data-testid="stTabs"] [data-baseweb="tab-border"]{display:none !important;}
-/* Distinct professional hues remain visible even when a tab is inactive. */
-[data-testid="stTabs"] [role="tab"]:nth-child(2){background-image:linear-gradient(135deg,#0F766E,#115E59) !important}
-[data-testid="stTabs"] [role="tab"]:nth-child(3){background-image:linear-gradient(135deg,#1D4ED8,#4338CA) !important}
-[data-testid="stTabs"] [role="tab"]:nth-child(4){background-image:linear-gradient(135deg,#166534,#15803D) !important}
-[data-testid="stTabs"] [role="tab"]:nth-child(5){background-image:linear-gradient(135deg,#0E7490,#0369A1) !important}
-[data-testid="stTabs"] [role="tab"]:nth-child(6){background-image:linear-gradient(135deg,#475569,#334155) !important}
-[data-testid="stTabs"] [role="tab"]:nth-child(7){background-image:linear-gradient(135deg,#6D28D9,#7E22CE) !important}
-[data-testid="stTabs"] [role="tab"][aria-selected="true"]{background-image:linear-gradient(135deg,#075985,#0F766E) !important}
+/* Muted scholarly palette: high contrast without saturated dashboard colours. */
+[data-testid="stTabs"] [role="tab"]{opacity:.90 !important;filter:saturate(.72) !important;}
+[data-testid="stTabs"] [role="tab"]:nth-child(1){background:#627B82 !important}
+[data-testid="stTabs"] [role="tab"]:nth-child(2){background:#6E8177 !important}
+[data-testid="stTabs"] [role="tab"]:nth-child(3){background:#68778C !important}
+[data-testid="stTabs"] [role="tab"]:nth-child(4){background:#78806F !important}
+[data-testid="stTabs"] [role="tab"]:nth-child(5){background:#667B86 !important}
+[data-testid="stTabs"] [role="tab"]:nth-child(6){background:#747983 !important}
+[data-testid="stTabs"] [role="tab"]:nth-child(7){background:#7E7487 !important}
+[data-testid="stTabs"] [role="tab"][aria-selected="true"]{background:#496C72 !important;opacity:1 !important;filter:none !important}
 
-/* Forecast setup controls: filled teal/navy controls, white bold selected value. */
+/* Forecast setup controls: softer translucent teal/slate fill, larger readable type. */
 [data-testid="stSelectbox"] label p,
 [data-testid="stNumberInput"] label p,
 [data-testid="stSlider"] label p,
 [data-testid="stRadio"] label p{
-  color:#0F172A !important; font-weight:850 !important; font-size:1.02rem !important;
+  color:#0F172A !important; font-weight:800 !important; font-size:1.10rem !important;
   line-height:1.25 !important; margin-bottom:.18rem !important;
 }
 [data-testid="stSelectbox"] [data-baseweb="select"] > div,
 [data-testid="stSelectbox"] [role="combobox"],
 [data-testid="stSelectbox"] div[aria-haspopup="listbox"]{
-  background:rgba(11,90,122,.86) !important;
-  background-image:linear-gradient(135deg,rgba(11,90,122,.88) 0%,rgba(15,118,110,.80) 100%) !important;
-  border:1px solid rgba(14,116,144,.72) !important; border-radius:12px !important;
-  min-height:48px !important; box-shadow:0 3px 10px rgba(15,118,110,.13) !important;
+  background:rgba(61,103,117,.72) !important;
+  background-image:linear-gradient(135deg,rgba(68,104,120,.74) 0%,rgba(74,116,108,.68) 100%) !important;
+  border:1px solid rgba(77,108,119,.52) !important; border-radius:12px !important;
+  min-height:50px !important; box-shadow:0 2px 8px rgba(55,78,84,.10) !important;
   color:#FFFFFF !important;
 }
 [data-testid="stSelectbox"] [data-baseweb="select"] > div *,
 [data-testid="stSelectbox"] [role="combobox"] *,
 [data-testid="stSelectbox"] div[aria-haspopup="listbox"] *{
-  color:#FFFFFF !important; fill:#FFFFFF !important; font-weight:800 !important; font-size:1.00rem !important;
+  color:#FFFFFF !important; fill:#FFFFFF !important; font-weight:780 !important; font-size:1.08rem !important;
 }
 [data-testid="stSelectbox"] svg{fill:#FFFFFF !important;color:#FFFFFF !important}
 [data-baseweb="popover"] [role="listbox"]{background:#FFFFFF !important;border:1px solid #CBD5E1 !important}
@@ -197,13 +199,13 @@ button[data-baseweb="tab"][aria-selected="true"]{
 }
 [data-testid="stRadio"] div[role="radiogroup"]{gap:.35rem}
 [data-testid="stRadio"] div[role="radiogroup"] label{
-  background:#E0F2FE !important;border:1px solid #7DD3FC !important;border-radius:9px !important;padding:.30rem .52rem !important;font-weight:800 !important
+  background:#EEF2F1 !important;border:1px solid #BCC9C8 !important;border-radius:9px !important;padding:.30rem .52rem !important;font-weight:800 !important
 }
 [data-testid="stSlider"] [data-baseweb="slider"] div[role="slider"]{background:#0F766E !important;border-color:#0F766E !important}
 div.stDownloadButton > button{
-  background:linear-gradient(135deg,#1D4ED8,#0E7490) !important;color:#FFFFFF !important;
+  background:linear-gradient(135deg,#607A88,#617F78) !important;color:#FFFFFF !important;
   border:0 !important;border-radius:10px !important;font-weight:850 !important;
-  box-shadow:0 4px 12px rgba(29,78,216,.16) !important
+  box-shadow:0 3px 10px rgba(55,78,84,.14) !important
 }
 div.stDownloadButton > button:hover{filter:brightness(1.07)}
 
@@ -800,12 +802,13 @@ def _idw_grid(df, value_col, grid_size=70, power=2.0):
     return gx,gy,zz
 
 
-def facility_contour_gradient_figure(df, value_col, title, unit, selected_code=None, colorscale=None):
+def facility_contour_gradient_figure(df, value_col, title, unit, selected_code=None, colorscale=None, diverging=False):
     """Labelled IDW contour surface from facility point forecasts.
 
-    This is a visual interpolation of values sampled at facility coordinates; it is
-    deliberately not presented as the native NWP grid.  When all point values are
-    effectively identical, no artificial contour gradient is drawn.
+    The surface is a visual interpolation of values sampled at facility coordinates;
+    it is not the native NWP grid. Contour values and facility names are printed on
+    the figure so the spatial pattern can be interpreted without relying on hover.
+    When all point values are effectively identical, no artificial gradient is drawn.
     """
     grid=_idw_grid(df,value_col)
     vals=pd.to_numeric(df[value_col],errors="coerce")
@@ -814,69 +817,89 @@ def facility_contour_gradient_figure(df, value_col, title, unit, selected_code=N
         return None
     gx,gy,zz=grid
     zmin=float(finite.min()); zmax=float(finite.max())
+    if diverging:
+        lim=max(abs(zmin),abs(zmax),0.1)
+        zmin,zmax=-lim,lim
     span=max(zmax-zmin,1e-6)
     n_levels=7
     contour_step=span/n_levels
-    if unit=="°C":
-        scale=colorscale or [
-            [0.00,"#1D4ED8"],[0.18,"#0EA5E9"],[0.36,"#22D3EE"],
-            [0.52,"#FDE047"],[0.72,"#FB923C"],[0.88,"#EF4444"],[1.00,"#991B1B"]
-        ]
+
+    # Muted publication-style palettes chosen for legibility rather than saturation.
+    if colorscale is not None:
+        scale=colorscale
+    elif diverging and unit=="°C":
+        scale=[[0.00,"#4E6B82"],[0.18,"#7895AA"],[0.36,"#B8CBD5"],[0.50,"#F2F0EA"],
+               [0.64,"#D7B4A7"],[0.82,"#B9786D"],[1.00,"#84514B"]]
+    elif diverging:
+        scale=[[0.00,"#8A6958"],[0.18,"#B59A88"],[0.36,"#D9CDBF"],[0.50,"#F2F0EA"],
+               [0.64,"#BDD1DA"],[0.82,"#7EA3B3"],[1.00,"#4E7487"]]
+    elif unit=="°C":
+        scale=[[0.00,"#536F86"],[0.20,"#7F9DB1"],[0.40,"#B9CAD2"],[0.58,"#DDD8C8"],
+               [0.76,"#C89A81"],[0.90,"#A96C5E"],[1.00,"#7F4E48"]]
     else:
-        scale=colorscale or [
-            [0.00,"#EFF6FF"],[0.18,"#BFDBFE"],[0.38,"#60A5FA"],
-            [0.60,"#2563EB"],[0.82,"#1D4ED8"],[1.00,"#172554"]
-        ]
-    decimals=1 if unit in ("°C","mm") else 0
+        scale=[[0.00,"#EFF3F4"],[0.20,"#CFDEE3"],[0.42,"#9FBCC8"],[0.64,"#7398A8"],
+               [0.82,"#55798A"],[1.00,"#3D5D6B"]]
+
+    decimals=1 if unit in ("°C","mm","%") else 0
     fig=go.Figure()
     fig.add_trace(go.Contour(
         x=gx,y=gy,z=zz,colorscale=scale,zmin=zmin,zmax=zmax,
         contours=dict(
             start=zmin,end=zmax,size=contour_step,coloring="heatmap",
             showlines=True,showlabels=True,
-            labelfont=dict(size=12,color="#0F172A",family="Arial Black")
+            labelfont=dict(size=12,color="#25323A",family="Arial")
         ),
-        line=dict(width=1.0,color="rgba(15,23,42,.48)"),
-        opacity=.84,
-        colorbar=dict(title=unit,thickness=14,len=.72,tickformat=f".{decimals}f"),
+        line=dict(width=.85,color="rgba(37,50,58,.48)"),
+        opacity=.72,
+        colorbar=dict(title=unit,thickness=13,len=.70,tickformat=f".{decimals}f",outlinewidth=0),
         hovertemplate=f"Longitude %{{x:.3f}}<br>Latitude %{{y:.3f}}<br>Interpolated value %{{z:.{decimals}f}} {unit}<extra></extra>",
         name="Interpolated facility-point forecast"
     ))
+
     point_custom=np.stack([
         df["FacilityName"].astype(str),
         vals.map(lambda v:"—" if pd.isna(v) else f"{v:.{decimals}f} {unit}")
     ],axis=1)
+    positions=["top center","bottom center","middle right","middle left"]
+    text_positions=[positions[i % len(positions)] for i in range(len(df))]
+    label_size=9 if len(df)<=35 else (8 if len(df)<=70 else 7)
     fig.add_trace(go.Scatter(
-        x=df["rep_lon"],y=df["rep_lat"],mode="markers",
-        marker=dict(size=8,color=vals,colorscale=scale,cmin=zmin,cmax=zmax,line=dict(width=.8,color="white"),showscale=False),
+        x=df["rep_lon"],y=df["rep_lat"],mode="markers+text",
+        text=df["FacilityName"].astype(str),textposition=text_positions,
+        textfont=dict(size=label_size,color="rgba(31,41,55,.78)",family="Arial"),
+        marker=dict(size=7.5,color=vals,colorscale=scale,cmin=zmin,cmax=zmax,opacity=.78,
+                    line=dict(width=.8,color="rgba(255,255,255,.92)"),showscale=False),
         customdata=point_custom,hovertemplate="<b>%{customdata[0]}</b><br>%{customdata[1]}<extra></extra>",
-        name="Health facilities"
+        name="Health facilities",cliponaxis=False
     ))
     if selected_code:
         sel=df[df["REGION_CODE"].astype(str)==str(selected_code)]
         if not sel.empty:
             r=sel.iloc[0]
             fig.add_trace(go.Scatter(
-                x=[r.rep_lon],y=[r.rep_lat],mode="markers+text",text=[r.FacilityName],textposition="top center",
-                marker=dict(size=16,symbol="star",color="#111827",line=dict(width=1.6,color="#FBBF24")),name="Selected facility"
+                x=[r.rep_lon],y=[r.rep_lat],mode="markers+text",text=[f"★ {r.FacilityName}"],textposition="top center",
+                textfont=dict(size=11,color="#263238",family="Arial"),
+                marker=dict(size=15,symbol="star",color="#B38B45",opacity=.90,line=dict(width=1.4,color="#F7F4EE")),
+                name="Selected facility",cliponaxis=False
             ))
     fig.update_layout(
-        title=dict(text=title,x=.01,xanchor="left",font=dict(size=15)),height=520,
-        xaxis_title="Longitude",yaxis_title="Latitude",margin=dict(l=35,r=10,t=55,b=35),
-        legend=dict(orientation="h",y=-.14),plot_bgcolor="#F8FAFC",paper_bgcolor="white"
+        title=dict(text=title,x=.01,xanchor="left",font=dict(size=15,color="#24323A")),height=540,
+        xaxis_title="Longitude",yaxis_title="Latitude",margin=dict(l=40,r=20,t=58,b=44),
+        legend=dict(orientation="h",y=-.15,font=dict(size=10,color="#42525A")),
+        plot_bgcolor="#F7F8F8",paper_bgcolor="white",font=dict(color="#34434B",family="Arial")
     )
-    fig.update_yaxes(scaleanchor="x",scaleratio=1)
+    fig.update_xaxes(gridcolor="rgba(148,163,184,.18)",zeroline=False)
+    fig.update_yaxes(scaleanchor="x",scaleratio=1,gridcolor="rgba(148,163,184,.18)",zeroline=False)
     return fig
 
-
-def facility_temperature_gradient_figure(df, value_col, title, selected_code=None):
+def facility_temperature_gradient_figure(df, value_col, title, selected_code=None, diverging=False):
     """Temperature wrapper retained for compatibility/preflight checks."""
-    return facility_contour_gradient_figure(df,value_col,title,"°C",selected_code)
+    return facility_contour_gradient_figure(df,value_col,title,"°C",selected_code,diverging=diverging)
 
 
-def facility_precipitation_gradient_figure(df, value_col, title, selected_code=None):
+def facility_precipitation_gradient_figure(df, value_col, title, selected_code=None, diverging=False):
     """Rainfall contour surface with labelled mm isolines where variation exists."""
-    return facility_contour_gradient_figure(df,value_col,title,"mm",selected_code)
+    return facility_contour_gradient_figure(df,value_col,title,"mm",selected_code,diverging=diverging)
 
 
 def facility_signal_bar_figure(df, value_col, title, unit, selected_code=None, max_bars=35):
@@ -893,17 +916,17 @@ def facility_signal_bar_figure(df, value_col, title, unit, selected_code=None, m
     if not selected.empty and str(selected.iloc[0]["REGION_CODE"]) not in set(d["REGION_CODE"].astype(str)):
         d=pd.concat([d,selected],ignore_index=True).drop_duplicates("REGION_CODE",keep="last")
     d=d.sort_values("_v",ascending=True)
-    colors=["#F59E0B" if selected_code and str(c)==str(selected_code) else "#0E7490" for c in d["REGION_CODE"]]
+    colors=["#B38B45" if selected_code and str(c)==str(selected_code) else "#607F8E" for c in d["REGION_CODE"]]
     labels=[("★ " if selected_code and str(c)==str(selected_code) else "")+str(n) for c,n in zip(d["REGION_CODE"],d["FacilityName"])]
     fig=go.Figure(go.Bar(
-        x=d["_v"],y=labels,orientation="h",marker=dict(color=colors),
+        x=d["_v"],y=labels,orientation="h",marker=dict(color=colors,opacity=.78,line=dict(width=.4,color="rgba(52,67,75,.28)")),
         text=[f"{v:.1f} {unit}" for v in d["_v"]],textposition="outside",
         hovertemplate="<b>%{y}</b><br>%{x:.1f} "+unit+"<extra></extra>"
     ))
     fig.update_layout(
         title=dict(text=title,x=.01,xanchor="left",font=dict(size=15)),height=max(430,26*len(d)+120),
         xaxis_title=unit,yaxis_title="",margin=dict(l=20,r=55,t=55,b=35),
-        plot_bgcolor="#F8FAFC",paper_bgcolor="white",showlegend=False
+        plot_bgcolor="#F7F8F8",paper_bgcolor="white",showlegend=False,font=dict(color="#34434B",family="Arial")
     )
     return fig
 
@@ -926,13 +949,13 @@ def facility_two_model_bar_figure(df, col_a, col_b, title, unit, selected_code=N
     d=d.sort_values("_mean",ascending=True)
     labels=[("★ " if selected_code and str(c)==str(selected_code) else "")+str(n) for c,n in zip(d["REGION_CODE"],d["FacilityName"])]
     fig=go.Figure()
-    fig.add_trace(go.Bar(x=d["_a"],y=labels,orientation="h",name="ECMWF IFS HRES",marker_color="#075985",text=[f"{v:.1f}" if pd.notna(v) else "" for v in d["_a"]],textposition="outside"))
-    fig.add_trace(go.Bar(x=d["_b"],y=labels,orientation="h",name="NOAA GFS",marker_color="#7C3AED",text=[f"{v:.1f}" if pd.notna(v) else "" for v in d["_b"]],textposition="outside"))
+    fig.add_trace(go.Bar(x=d["_a"],y=labels,orientation="h",name="ECMWF IFS HRES",marker=dict(color="#5C788A",opacity=.78,line=dict(width=.35,color="rgba(52,67,75,.24)")),text=[f"{v:.1f}" if pd.notna(v) else "" for v in d["_a"]],textposition="outside"))
+    fig.add_trace(go.Bar(x=d["_b"],y=labels,orientation="h",name="NOAA GFS",marker=dict(color="#887B9B",opacity=.74,line=dict(width=.35,color="rgba(72,61,84,.22)")),text=[f"{v:.1f}" if pd.notna(v) else "" for v in d["_b"]],textposition="outside"))
     fig.update_layout(
         barmode="group",title=dict(text=title,x=.01,xanchor="left",font=dict(size=15)),
         height=max(460,30*len(d)+140),xaxis_title=unit,yaxis_title="",
-        margin=dict(l=20,r=55,t=55,b=40),plot_bgcolor="#F8FAFC",paper_bgcolor="white",
-        legend=dict(orientation="h",y=1.04,x=0)
+        margin=dict(l=20,r=55,t=55,b=40),plot_bgcolor="#F7F8F8",paper_bgcolor="white",
+        legend=dict(orientation="h",y=1.04,x=0),font=dict(color="#34434B",family="Arial")
     )
     return fig
 
@@ -942,15 +965,15 @@ def facility_point_spatial_figure(df, value_col, title, unit, selected_code=None
     finite=vals.dropna()
     if diverging:
         lim=max(.1,float(np.nanquantile(np.abs(finite),.98))) if len(finite) else 1.0
-        cmin,cmax=-lim,lim; scale="RdBu_r"
+        cmin,cmax=-lim,lim; scale=[[0.0,"#4E6B82"],[0.25,"#93A8B7"],[0.5,"#F2F0EA"],[0.75,"#C89587"],[1.0,"#84514B"]]
     else:
         cmin=float(finite.quantile(.02)) if len(finite) else 0.0
         cmax=float(finite.quantile(.98)) if len(finite) else 1.0
         if cmax<=cmin:cmax=cmin+1
-        scale="YlOrRd" if unit=="°C" else "Blues"
+        scale=[[0.0,"#536F86"],[0.35,"#AFC2CC"],[0.6,"#DDD8C8"],[0.82,"#C58E76"],[1.0,"#87524B"]] if unit=="°C" else [[0.0,"#EFF3F4"],[0.35,"#BED1D9"],[0.65,"#7FA1AF"],[1.0,"#476979"]]
     fig=go.Figure(go.Scattermap(
         lon=d["rep_lon"],lat=d["rep_lat"],mode="markers",
-        marker=dict(size=12,color=vals,colorscale=scale,cmin=cmin,cmax=cmax,opacity=.92,colorbar=dict(title=unit,thickness=13,len=.64)),
+        marker=dict(size=11,color=vals,colorscale=scale,cmin=cmin,cmax=cmax,opacity=.76,colorbar=dict(title=unit,thickness=13,len=.64,outlinewidth=0)),
         customdata=np.stack([d["FacilityName"].astype(str),vals.map(lambda v:"—" if pd.isna(v) else f"{v:.1f} {unit}")],axis=1),
         hovertemplate="<b>%{customdata[0]}</b><br>%{customdata[1]}<extra></extra>",name="Facilities"
     ))
@@ -959,7 +982,7 @@ def facility_point_spatial_figure(df, value_col, title, unit, selected_code=None
         if not sel.empty:
             r=sel.iloc[0]
             fig.add_trace(go.Scattermap(lon=[r.rep_lon],lat=[r.rep_lat],mode="markers+text",text=[r.FacilityName],textposition="top center",
-                                        marker=dict(size=18,color="#111827"),name="Selected facility"))
+                                        marker=dict(size=17,color="#B38B45",opacity=.88),name="Selected facility"))
     centre,zoom=map_view_from_df(d)
     fig.update_layout(map=dict(style=BASEMAP_STYLES.get(basemap_name,"carto-voyager"),center=centre,zoom=max(zoom,7.8)),
                       title=dict(text=title,x=.01,xanchor="left",font=dict(size=15)),height=500,margin=dict(l=0,r=0,t=55,b=25),legend=dict(orientation="h",y=-.04))
@@ -994,6 +1017,30 @@ def facility_two_model_comparison(regions,horizon,period):
     out["Rain3_ModelMean_mm"]=out[["ECMWF_Rain3_mm","GFS_Rain3_mm"]].mean(axis=1)
     out["Rain3_ECMWF_minus_GFS_mm"]=out["ECMWF_Rain3_mm"]-out["GFS_Rain3_mm"]
     return out, f"ECMWF {ec_status} · NOAA GFS {gf_status}"
+
+
+def facility_longrange_component_values(regions, long_payload, period):
+    """Build facility-level long-range temperature/precipitation anomaly components.
+
+    `long_payload` is the ECMWF EC46/SEAS5 response already retrieved by
+    build_map_values(), so this adds no extra API request. Values are means over the
+    selected week/month window and remain physical anomalies (°C / mm).
+    """
+    if regions is None or regions.empty or not isinstance(long_payload, dict):
+        return pd.DataFrame()
+    section,sl=long_slice(period)
+    rows=[]
+    for r in regions.itertuples():
+        code=str(r.REGION_CODE)
+        x=long_payload.get(code,{})
+        ts=x.get(f"{section}_temp",pd.Series(dtype=float)).iloc[sl]
+        ps=x.get(f"{section}_precip",pd.Series(dtype=float)).iloc[sl]
+        rows.append({
+            **r._asdict(),
+            "TempAnomaly_C":float(ts.mean()) if len(ts.dropna()) else np.nan,
+            "PrecipAnomaly_mm":float(ps.mean()) if len(ps.dropna()) else np.nan,
+        })
+    return pd.DataFrame(rows)
 
 def facility_screen_subset(facilities, selected_code=None):
     if facilities is None or facilities.empty:
@@ -3376,6 +3423,7 @@ if geo_error is None and not regions.empty:
     # -----------------------------------------------------------------------
     facility_forecast_df=pd.DataFrame()
     facility_model_df=pd.DataFrame()
+    long_facility_df=pd.DataFrame()
     selected_facility_value=np.nan
     selected_facility_unit=unit_for(hazard,horizon,mode)
     facility_screen_limited=False
@@ -3458,6 +3506,50 @@ if geo_error is None and not regions.empty:
                 if facility_bar is not None:
                     st.plotly_chart(facility_bar,use_container_width=True,config={"displayModeBar":True,"responsive":True})
 
+                # Consistent facility gradients for extended-range and seasonal forecasts.
+                if horizon in ("Sub-seasonal","Seasonal"):
+                    try:
+                        long_payload=_facility_payload.get("long",{}) if isinstance(_facility_payload,dict) else {}
+                        long_facility_df=facility_longrange_component_values(facility_input,long_payload,period)
+                        if not long_facility_df.empty:
+                            st.markdown("#### Facility seasonal / sub-seasonal spatial gradients")
+                            st.caption(
+                                "Facility names and physical anomaly values are shown directly on the labelled contour surface. "
+                                "The surface is an inverse-distance visual interpolation of ECMWF EC46/SEAS5 anomaly values sampled at facility coordinates; it is not the native model grid."
+                            )
+                            if hazard in ("Heatwave","Compound – Flood + Heatwave","Compound – Drought + Heatwave"):
+                                tg=facility_temperature_gradient_figure(
+                                    long_facility_df,"TempAnomaly_C",
+                                    f"{focus} · facility temperature anomaly gradient · {period_display_label(horizon,period)}",
+                                    facility_choice_code,diverging=True
+                                )
+                                if tg is not None:
+                                    st.plotly_chart(tg,use_container_width=True,config={"displayModeBar":True,"responsive":True})
+                                tb=facility_signal_bar_figure(
+                                    long_facility_df,"TempAnomaly_C",
+                                    f"{focus} · facility temperature anomaly · {period_display_label(horizon,period)}",
+                                    "°C",facility_choice_code
+                                )
+                                if tb is not None:
+                                    st.plotly_chart(tb,use_container_width=True,config={"displayModeBar":True,"responsive":True})
+                            if hazard in ("Flood – rainfall","Drought / dry anomaly","Compound – Flood + Heatwave","Compound – Drought + Heatwave","Compound – Drought → Flood"):
+                                pg=facility_precipitation_gradient_figure(
+                                    long_facility_df,"PrecipAnomaly_mm",
+                                    f"{focus} · facility precipitation anomaly gradient · {period_display_label(horizon,period)}",
+                                    facility_choice_code,diverging=True
+                                )
+                                if pg is not None:
+                                    st.plotly_chart(pg,use_container_width=True,config={"displayModeBar":True,"responsive":True})
+                                pb=facility_signal_bar_figure(
+                                    long_facility_df,"PrecipAnomaly_mm",
+                                    f"{focus} · facility precipitation anomaly · {period_display_label(horizon,period)}",
+                                    "mm",facility_choice_code
+                                )
+                                if pb is not None:
+                                    st.plotly_chart(pb,use_container_width=True,config={"displayModeBar":True,"responsive":True})
+                    except Exception as exc:
+                        st.info(f"Facility long-range gradient is temporarily unavailable: {exc}")
+
                 if horizon in ("Short range","Medium range") and hazard in ("Heatwave","Flood – rainfall","Compound – Flood + Heatwave"):
                     try:
                         with st.spinner("Comparing ECMWF IFS and NOAA GFS across facility locations..."):
@@ -3465,7 +3557,7 @@ if geo_error is None and not regions.empty:
                         if not facility_model_df.empty:
                             st.markdown("#### Facility spatial model comparison")
                             st.caption(
-                                "Each forecast model is sampled at the health-facility coordinates. Labelled contour lines show the interpolated value directly on the surface. "
+                                "Each forecast model is sampled at the health-facility coordinates. Facility names are printed beside the points and labelled contour lines show the interpolated value directly on the surface. "
                                 "The coloured surface is an inverse-distance interpolation of facility point forecasts for visual interpretation; it is not the native ECMWF/GFS grid. "
                                 "The bar charts below use the original sampled facility values, not the interpolation."
                             )
@@ -4920,6 +5012,8 @@ Historical analogue relationships are supporting context and should not be treat
             package_files["facility_forecast_exposure.csv"]=facility_forecast_df.to_csv(index=False).encode("utf-8")
         if isinstance(facility_model_df,pd.DataFrame) and not facility_model_df.empty:
             package_files["facility_ecmwf_gfs_comparison.csv"]=facility_model_df.to_csv(index=False).encode("utf-8")
+        if isinstance(long_facility_df,pd.DataFrame) and not long_facility_df.empty:
+            package_files["facility_longrange_anomaly_components.csv"]=long_facility_df.to_csv(index=False).encode("utf-8")
         if isinstance(facility_registry,pd.DataFrame) and not facility_registry.empty:
             package_files["facility_registry.csv"]=facility_registry.to_csv(index=False).encode("utf-8")
 

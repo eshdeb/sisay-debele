@@ -1,7 +1,7 @@
 # REACH Climate–Health Early Warning Data Portal
 
 **Final GitHub / Streamlit release — 2 October 2026**  
-**V7 · Labelled facility contours + facility bar comparisons + ECMWF/GFS/ERA5 context + refined accessible interface**
+**V8 · Facility-name contour labels + seasonal/sub-seasonal facility gradients + muted publication-style interface**
 
 This repository contains the full REACH climate–health research decision-support dashboard.
 
@@ -68,28 +68,45 @@ The seven main analysis tabs are now filled controls with bold white text so all
 - Downloads · CSV / Stella
 - Forecast verification · REACH pilots
 
-The tab strip wraps on narrower screens. The active tab has a distinct teal/navy style and focus border. Forecast-setup selectors, radio controls, download buttons and source buttons also use filled high-contrast styles. V7 softens the selector fill with semi-transparent teal/navy tones and increases label/selected-value font sizes so the controls remain prominent without feeling overly heavy.
+The tab strip wraps on narrower screens. The active tab has a distinct teal/navy style and focus border. Forecast-setup selectors, radio controls, download buttons and source buttons also use filled high-contrast styles. V8 further softens the selector fill and tab palette while retaining high contrast and larger label/selected-value font sizes, so controls remain easy to find without dominating the scientific figures.
 
 
-## V7 visual, facility-summary and model-comparison revision
+## V8 visual, facility-gradient and model-comparison revision
 
 This release adds the visual analysis requested for district/municipality and facility forecasts without removing the existing numerical cards, maps, ensemble uncertainty, hydrology, climate drivers, SDM outputs or verification workflows.
 
 ### Facility spatial temperature gradients
 
-For short- and medium-range heat forecasts, the dashboard now:
+For short- and medium-range heat forecasts, the dashboard:
 
 - samples **ECMWF IFS HRES** and **NOAA GFS** at each mapped health-facility coordinate
 - displays the two models side by side
-- creates a blue → cyan → yellow → orange → red **Tmax spatial gradient** with each facility plotted as a point
+- creates a muted **Tmax spatial gradient** with each facility plotted as a point
+- prints the **facility name beside each point** and the forecast value on labelled contour lines
 - highlights the selected facility
 - shows an ECMWF-minus-GFS spatial difference map
 - exposes the underlying point values in a table and downloadable CSV
 
-The coloured gradient is an **inverse-distance interpolation of forecast values sampled at facility points**. V7 adds labelled contour lines so the temperature or precipitation value can be read directly on the surface. It is a visualisation layer and is not presented as the native model grid. If all facility precipitation values are effectively identical, the app does not invent a gradient; it falls back to the facility point map.
+The coloured gradient is an **inverse-distance interpolation of forecast values sampled at facility points**. V8 prints both **facility names** and **labelled contour values** directly on the surface so the figure remains interpretable without hover. It is a visualisation layer and is not presented as the native model grid. If all facility precipitation values are effectively identical, the app does not invent a gradient; it falls back to the facility point map.
 
 For rainfall-driven flood forecasts, the same section shows side-by-side labelled facility rainfall contours when spatial variation exists, a grouped ECMWF/GFS facility bar chart, and a model-difference map. Compound Flood + Heatwave now displays both the temperature and rainfall comparison panels.
 
+
+
+### Seasonal and sub-seasonal facility gradients
+
+V8 makes the facility-gradient workflow consistent across all forecast horizons. For **Sub-seasonal (weeks 2–6)** and **Seasonal (months 1–7)** selections, the app now uses the physical ECMWF EC46/SEAS5 anomaly fields already fetched for the facility screen to create:
+
+- facility **temperature anomaly** contour gradients (°C) for heat-related views
+- facility **precipitation anomaly** contour gradients (mm) for rainfall/drought-related views
+- labelled contour values plus facility names on the surface
+- matching direct-value facility bar charts
+
+These long-range surfaces use a centred, muted diverging palette so negative and positive anomalies are visually balanced. They are visual IDW interpolations of facility point anomalies and are not the native seasonal-model grid. Compound views show the relevant physical component gradients alongside the existing screening score.
+
+### Muted publication-style visual design
+
+V8 reduces colour saturation across the facility contour plots, facility bar charts, model-comparison bars and analysis tabs. The design uses muted blue-grey, teal, clay and plum tones with increased transparency, lighter plot backgrounds and restrained highlights. Forecast-setup selectors retain filled styling but use softer translucent teal/slate backgrounds with larger text. This keeps controls visible while making the dashboard calmer and more suitable for research and publication-facing presentations.
 
 ### Facility bar charts and summary statistics
 
