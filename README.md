@@ -1,7 +1,7 @@
 # REACH Climate–Health Early Warning Data Portal
 
 **Final GitHub / Streamlit release — 2 October 2026**  
-**V6 · Facility spatial gradients + ECMWF/GFS/ERA5 comparison + high-contrast interface**
+**V7 · Labelled facility contours + facility bar comparisons + ECMWF/GFS/ERA5 context + refined accessible interface**
 
 This repository contains the full REACH climate–health research decision-support dashboard.
 
@@ -68,10 +68,10 @@ The seven main analysis tabs are now filled controls with bold white text so all
 - Downloads · CSV / Stella
 - Forecast verification · REACH pilots
 
-The tab strip wraps on narrower screens. The active tab has a distinct teal/navy style and focus border. Forecast-setup selectors, radio controls, download buttons and source buttons also use filled high-contrast styles.
+The tab strip wraps on narrower screens. The active tab has a distinct teal/navy style and focus border. Forecast-setup selectors, radio controls, download buttons and source buttons also use filled high-contrast styles. V7 softens the selector fill with semi-transparent teal/navy tones and increases label/selected-value font sizes so the controls remain prominent without feeling overly heavy.
 
 
-## V6 visual and model-comparison revision
+## V7 visual, facility-summary and model-comparison revision
 
 This release adds the visual analysis requested for district/municipality and facility forecasts without removing the existing numerical cards, maps, ensemble uncertainty, hydrology, climate drivers, SDM outputs or verification workflows.
 
@@ -86,9 +86,38 @@ For short- and medium-range heat forecasts, the dashboard now:
 - shows an ECMWF-minus-GFS spatial difference map
 - exposes the underlying point values in a table and downloadable CSV
 
-The coloured gradient is an **inverse-distance interpolation of forecast values sampled at facility points**. It is a visualisation layer and is not presented as the native model grid.
+The coloured gradient is an **inverse-distance interpolation of forecast values sampled at facility points**. V7 adds labelled contour lines so the temperature or precipitation value can be read directly on the surface. It is a visualisation layer and is not presented as the native model grid. If all facility precipitation values are effectively identical, the app does not invent a gradient; it falls back to the facility point map.
 
-For rainfall-driven flood forecasts, the same section shows side-by-side facility point maps for ECMWF and GFS maximum 3-day rainfall and a model-difference map.
+For rainfall-driven flood forecasts, the same section shows side-by-side labelled facility rainfall contours when spatial variation exists, a grouped ECMWF/GFS facility bar chart, and a model-difference map. Compound Flood + Heatwave now displays both the temperature and rainfall comparison panels.
+
+
+### Facility bar charts and summary statistics
+
+V7 adds direct-value bar charts so the facility forecasts are not only visible in tables or maps. The active facility forecast screen now shows:
+
+- a horizontal bar comparison of the direct point-specific forecast values across mapped facilities
+- the selected facility highlighted with a star/gold emphasis
+- grouped **ECMWF IFS HRES vs NOAA GFS** facility bars for temperature and rainfall
+- parent-area name, number of facilities screened, selected facility value, facility mean and facility range
+- an explanatory line giving facility minimum, mean, median, maximum and range width
+- a selected-location valid-period summary showing ECMWF and GFS minimum, mean, maximum and range; rainfall views also report valid-window totals
+
+The national/state spatial summary also now shows the selected administrative area, selected value, minimum, mean, median, maximum and mapped range. The selected district/municipality value is a representative-point forecast for that administrative area; the national/state summary statistics describe the mapped administrative areas, not every model-grid pixel inside the selected polygon.
+
+### Geography and facility coverage documented in the app
+
+The Documentation tab now states the hierarchy and coverage explicitly:
+
+- **Zambia:** 116 districts available for district-level forecasts
+- **Brazil:** 5,572 municipalities available for municipality-level forecasts
+- **Zambia REACH facility pilots:** Senanga and Sinazongwe
+- **Brazil REACH facility pilots:** Recife and Palmares
+- the bundled Zambia facility-detail workbook lists **21 Senanga facilities** and **32 Sinazongwe facilities**
+- live mapped facility counts can differ because the active registry must provide usable coordinates
+- Brazil pilot counts are obtained live from CNES/DATASUS
+- a Documentation control can refresh live counts for all four pilots and the Zambia national NSDI facility registry
+
+This distinction prevents a registry total from being confused with the number of facilities that can actually receive a point forecast in the current session.
 
 ### District / municipality / facility model comparison
 

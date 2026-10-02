@@ -1,7 +1,7 @@
 REACH Climate–Health EWS
 Final GitHub / Streamlit release
 Date: 2026-10-02
-Release: V6 · Facility spatial gradients + ECMWF/GFS/ERA5 comparison + accessible UI
+Release: V7 · Labelled facility contours + bar comparisons + coverage documentation + refined accessible UI
 
 Core platform retained:
 - Zambia: all 116 districts
@@ -11,19 +11,20 @@ Core platform retained:
 - heat, rainfall flood, river-discharge flood, drought and compound-hazard views
 - GloFAS, climate drivers, return periods, Stella/SDM hand-off and historical verification
 
-V6 revisions:
-- health facilities remain nested under the parent district/municipality
-- Brazil facility selector displays real CNES establishment names and no unexplained numeric “CNES type” suffixes
-- selected facility drives the detailed forecast calculations using its coordinates
-- short/medium range facility comparison samples both ECMWF IFS HRES and NOAA GFS
-- heat views add side-by-side facility temperature-gradient surfaces with points and a °C colour scale
-- the gradient is explicitly labelled as IDW interpolation of model values sampled at facility points, not the native NWP grid
-- rainfall views add side-by-side facility point maps for ECMWF and GFS plus their difference
-- point/district/facility time-series analysis adds a 2×2 ECMWF/GFS/ERA5 comparison dashboard
-- ERA5 1981–2014 is used as historical climatology/threshold context for future forecasts, not misrepresented as a future observation
-- current forecast anomalies are shown relative to the ERA5 day-of-year climatology
-- model-comparison values are included in downloadable time-series and selected-data packages
-- all analysis tabs and forecast selectors use stronger high-contrast filled styling with bold labels
+V7 revisions:
+- facility forecasts remain nested under the parent district/municipality
+- temperature facility gradients now use labelled contour lines with forecast values printed on the surface
+- precipitation facility gradients use labelled mm contours when facility values vary spatially; uniform fields fall back to an honest point map
+- direct facility forecast values are now visualised with bar charts in addition to maps/tables
+- ECMWF IFS HRES and NOAA GFS facility values are compared in grouped bar charts for temperature and rainfall
+- compound flood + heat views now show both temperature and precipitation model-comparison panels
+- selected district/municipality summaries now show selected value, minimum, mean, median, maximum and mapped range
+- facility summaries show minimum, mean, median, maximum and facility range within the selected parent area
+- forecast-setup controls use a softer semi-transparent teal/navy fill and larger text for readability
+- documentation now explains district/municipality versus facility values, national administrative coverage and pilot-facility coverage
+- Zambia REACH facility-detail workbook coverage is documented as 21 Senanga facilities and 32 Sinazongwe facilities; live mapped counts can differ because valid coordinates are required
+- documentation can refresh live counts for all four pilots and the Zambia national NSDI facility registry
+- decision-maker briefing explicitly reports facility range statistics when a facility is selected
 
 Scientific boundary:
-A facility-specific forecast is a point-specific hazard/exposure signal. It must not be interpreted as operational facility risk unless readiness/access data such as staffing, WASH, electricity, cold chain, service availability or access disruption are explicitly integrated.
+A facility-specific forecast is a point-specific hazard/exposure signal. A facility contour surface is an IDW visual interpolation of those point samples, not the native model grid. Operational facility risk must not be inferred unless readiness/access data such as staffing, WASH, electricity, cold chain, service availability or access disruption are explicitly integrated.

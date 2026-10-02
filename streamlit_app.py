@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 _APP_NOTES = """
-REACH Climate–Health Early Warning Data Portal · FINAL V6 · FACILITY SPATIAL + MODEL COMPARISON
+REACH Climate–Health Early Warning Data Portal · FINAL V7 · FACILITY CONTOURS + BAR COMPARISON + COVERAGE DOCUMENTATION
 
 V5.0 restores/preserves the V4.4 + V4.5 functionality and adds:
 - Zambia + Brazil country selector.
@@ -25,6 +25,9 @@ V5.0 restores/preserves the V4.4 + V4.5 functionality and adds:
 - Facility-level spatial temperature gradients and point forecasts nested under pilot districts/municipalities.
 - Point-level ECMWF vs NOAA GFS comparison with ERA5 historical climatology and forecast anomalies.
 - High-contrast filled navigation tabs and forecast controls for modern accessible use.
+- Labelled facility contour surfaces for temperature and rainfall where spatial variation exists.
+- Facility comparison bar charts, parent-area/facility summary statistics and clearer district/facility interpretation.
+- Expanded documentation for national geography and REACH pilot facility coverage.
 
 Scientific boundary:
 Compound scores are screening indices unless explicitly described as a forecast
@@ -166,26 +169,27 @@ button[data-baseweb="tab"][aria-selected="true"]{
 [data-testid="stNumberInput"] label p,
 [data-testid="stSlider"] label p,
 [data-testid="stRadio"] label p{
-  color:#0F172A !important; font-weight:850 !important;
+  color:#0F172A !important; font-weight:850 !important; font-size:1.02rem !important;
+  line-height:1.25 !important; margin-bottom:.18rem !important;
 }
 [data-testid="stSelectbox"] [data-baseweb="select"] > div,
 [data-testid="stSelectbox"] [role="combobox"],
 [data-testid="stSelectbox"] div[aria-haspopup="listbox"]{
-  background:#0B5A7A !important;
-  background-image:linear-gradient(135deg,#0B5A7A 0%,#0F766E 100%) !important;
-  border:1px solid #0E7490 !important; border-radius:11px !important;
-  min-height:44px !important; box-shadow:0 4px 12px rgba(15,118,110,.18) !important;
+  background:rgba(11,90,122,.86) !important;
+  background-image:linear-gradient(135deg,rgba(11,90,122,.88) 0%,rgba(15,118,110,.80) 100%) !important;
+  border:1px solid rgba(14,116,144,.72) !important; border-radius:12px !important;
+  min-height:48px !important; box-shadow:0 3px 10px rgba(15,118,110,.13) !important;
   color:#FFFFFF !important;
 }
 [data-testid="stSelectbox"] [data-baseweb="select"] > div *,
 [data-testid="stSelectbox"] [role="combobox"] *,
 [data-testid="stSelectbox"] div[aria-haspopup="listbox"] *{
-  color:#FFFFFF !important; fill:#FFFFFF !important; font-weight:800 !important;
+  color:#FFFFFF !important; fill:#FFFFFF !important; font-weight:800 !important; font-size:1.00rem !important;
 }
 [data-testid="stSelectbox"] svg{fill:#FFFFFF !important;color:#FFFFFF !important}
 [data-baseweb="popover"] [role="listbox"]{background:#FFFFFF !important;border:1px solid #CBD5E1 !important}
 [data-baseweb="popover"] [role="option"],
-[role="listbox"] [role="option"]{color:#0F172A !important;background:#FFFFFF !important;font-weight:700 !important}
+[role="listbox"] [role="option"]{color:#0F172A !important;background:#FFFFFF !important;font-weight:700 !important;font-size:.98rem !important}
 [data-baseweb="popover"] [role="option"]:hover,
 [role="listbox"] [role="option"]:hover{background:#E0F2FE !important;color:#075985 !important}
 [data-testid="stNumberInput"] input,[data-testid="stTextInput"] input{
@@ -669,6 +673,66 @@ def facilities_for_area(country, focus, region_code):
     return brazil_facilities_online(region_code, focus)
 
 
+@st.cache_data(ttl=86400, show_spinner=False)
+def zambia_national_facility_count():
+    """Return live count from the national Zambia NSDI facility layer when available."""
+    try:
+        payload,status=cached_json(
+            ZAMBIA_FACILITY_QUERY_URL,
+            {"where":"1=1","returnCountOnly":"true","f":"json"},
+            86400,45
+        )
+        count=int(payload.get("count")) if isinstance(payload,dict) and payload.get("count") is not None else None
+        return count,status
+    except Exception as exc:
+        return None,f"unavailable: {exc}"
+
+
+@st.cache_data(show_spinner=False)
+def zambia_project_facility_counts():
+    """Counts in the bundled REACH facility-detail workbook, independent of coordinate availability."""
+    counts={"Senanga":None,"Sinazongwe":None}
+    if not ZAMBIA_PILOT_FACILITY_XLS.exists():
+        return counts
+    try:
+        xls=pd.ExcelFile(ZAMBIA_PILOT_FACILITY_XLS)
+        frames=[]
+        for sheet in xls.sheet_names:
+            for header in range(0,4):
+                try:
+                    d=pd.read_excel(ZAMBIA_PILOT_FACILITY_XLS,sheet_name=sheet,header=header)
+                    district_col=_find_column(d,exact=("district",),contains=("district",))
+                    facility_col=_find_column(d,exact=("facility", "facility name", "health facility"),contains=("facility",))
+                    if district_col is not None and facility_col is not None:
+                        frames.append(d[[district_col,facility_col]].rename(columns={district_col:"District",facility_col:"Facility"}))
+                        break
+                except Exception:
+                    continue
+        if frames:
+            allf=pd.concat(frames,ignore_index=True)
+            allf=allf.dropna(subset=["District","Facility"])
+            for name in counts:
+                g=allf[allf["District"].map(_text_key)==_text_key(name)]
+                counts[name]=int(g["Facility"].astype(str).str.strip().replace("",np.nan).dropna().nunique())
+    except Exception:
+        pass
+    return counts
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def all_pilot_live_facility_counts():
+    """Live mapped facility counts for the four REACH pilots plus Zambia national registry count."""
+    rows=[]
+    for name in ("Senanga","Sinazongwe"):
+        d,status=zambia_facilities_online(name)
+        rows.append({"Country":"Zambia","Pilot area":name,"Live mapped facilities":len(d),"Registry":"Zambia NSDI","Status":status})
+    for name,code in (("Recife","2611606"),("Palmares","2610004")):
+        d,status=brazil_facilities_online(code,name)
+        rows.append({"Country":"Brazil","Pilot area":name,"Live mapped facilities":len(d),"Registry":"CNES / DATASUS","Status":status})
+    national_count,national_status=zambia_national_facility_count()
+    return pd.DataFrame(rows),national_count,national_status
+
+
 @st.cache_data(show_spinner=False)
 def load_pilot_hmis_context():
     if not ZAMBIA_PILOT_HMIS_CSV.exists():
@@ -736,48 +800,140 @@ def _idw_grid(df, value_col, grid_size=70, power=2.0):
     return gx,gy,zz
 
 
-def facility_temperature_gradient_figure(df, value_col, title, selected_code=None):
-    """Temperature surface + facility points using point-sampled forecast values."""
+def facility_contour_gradient_figure(df, value_col, title, unit, selected_code=None, colorscale=None):
+    """Labelled IDW contour surface from facility point forecasts.
+
+    This is a visual interpolation of values sampled at facility coordinates; it is
+    deliberately not presented as the native NWP grid.  When all point values are
+    effectively identical, no artificial contour gradient is drawn.
+    """
     grid=_idw_grid(df,value_col)
-    if grid is None:
-        return None
-    gx,gy,zz=grid
     vals=pd.to_numeric(df[value_col],errors="coerce")
     finite=vals.dropna()
-    zmin=float(finite.min()) if len(finite) else float(np.nanmin(zz))
-    zmax=float(finite.max()) if len(finite) else float(np.nanmax(zz))
-    if zmax<=zmin: zmax=zmin+.5
-    temp_scale=[
-        [0.00,"#1D4ED8"],[0.18,"#0EA5E9"],[0.36,"#22D3EE"],
-        [0.52,"#FDE047"],[0.72,"#FB923C"],[0.88,"#EF4444"],[1.00,"#991B1B"]
-    ]
+    if grid is None or finite.empty or finite.nunique() < 2:
+        return None
+    gx,gy,zz=grid
+    zmin=float(finite.min()); zmax=float(finite.max())
+    span=max(zmax-zmin,1e-6)
+    n_levels=7
+    contour_step=span/n_levels
+    if unit=="°C":
+        scale=colorscale or [
+            [0.00,"#1D4ED8"],[0.18,"#0EA5E9"],[0.36,"#22D3EE"],
+            [0.52,"#FDE047"],[0.72,"#FB923C"],[0.88,"#EF4444"],[1.00,"#991B1B"]
+        ]
+    else:
+        scale=colorscale or [
+            [0.00,"#EFF6FF"],[0.18,"#BFDBFE"],[0.38,"#60A5FA"],
+            [0.60,"#2563EB"],[0.82,"#1D4ED8"],[1.00,"#172554"]
+        ]
+    decimals=1 if unit in ("°C","mm") else 0
     fig=go.Figure()
     fig.add_trace(go.Contour(
-        x=gx,y=gy,z=zz,colorscale=temp_scale,zmin=zmin,zmax=zmax,
-        contours=dict(coloring="heatmap",showlines=False),opacity=.86,
-        colorbar=dict(title="Tmax (°C)",thickness=14,len=.72),
-        hovertemplate="Longitude %{x:.3f}<br>Latitude %{y:.3f}<br>Interpolated Tmax %{z:.1f} °C<extra></extra>",
-        name="Interpolated forecast"
+        x=gx,y=gy,z=zz,colorscale=scale,zmin=zmin,zmax=zmax,
+        contours=dict(
+            start=zmin,end=zmax,size=contour_step,coloring="heatmap",
+            showlines=True,showlabels=True,
+            labelfont=dict(size=12,color="#0F172A",family="Arial Black")
+        ),
+        line=dict(width=1.0,color="rgba(15,23,42,.48)"),
+        opacity=.84,
+        colorbar=dict(title=unit,thickness=14,len=.72,tickformat=f".{decimals}f"),
+        hovertemplate=f"Longitude %{{x:.3f}}<br>Latitude %{{y:.3f}}<br>Interpolated value %{{z:.{decimals}f}} {unit}<extra></extra>",
+        name="Interpolated facility-point forecast"
     ))
-    point_custom=np.stack([df["FacilityName"].astype(str),vals.map(lambda v:"—" if pd.isna(v) else f"{v:.1f} °C")],axis=1)
+    point_custom=np.stack([
+        df["FacilityName"].astype(str),
+        vals.map(lambda v:"—" if pd.isna(v) else f"{v:.{decimals}f} {unit}")
+    ],axis=1)
     fig.add_trace(go.Scatter(
         x=df["rep_lon"],y=df["rep_lat"],mode="markers",
-        marker=dict(size=8,color=vals,colorscale=temp_scale,cmin=zmin,cmax=zmax,line=dict(width=.7,color="white"),showscale=False),
-        customdata=point_custom,hovertemplate="<b>%{customdata[0]}</b><br>Tmax: %{customdata[1]}<extra></extra>",
+        marker=dict(size=8,color=vals,colorscale=scale,cmin=zmin,cmax=zmax,line=dict(width=.8,color="white"),showscale=False),
+        customdata=point_custom,hovertemplate="<b>%{customdata[0]}</b><br>%{customdata[1]}<extra></extra>",
         name="Health facilities"
     ))
     if selected_code:
         sel=df[df["REGION_CODE"].astype(str)==str(selected_code)]
         if not sel.empty:
             r=sel.iloc[0]
-            fig.add_trace(go.Scatter(x=[r.rep_lon],y=[r.rep_lat],mode="markers+text",text=[r.FacilityName],textposition="top center",
-                                     marker=dict(size=15,symbol="star",color="#111827",line=dict(width=1.5,color="#FBBF24")),name="Selected facility"))
+            fig.add_trace(go.Scatter(
+                x=[r.rep_lon],y=[r.rep_lat],mode="markers+text",text=[r.FacilityName],textposition="top center",
+                marker=dict(size=16,symbol="star",color="#111827",line=dict(width=1.6,color="#FBBF24")),name="Selected facility"
+            ))
     fig.update_layout(
-        title=dict(text=title,x=.01,xanchor="left",font=dict(size=15)),height=500,
+        title=dict(text=title,x=.01,xanchor="left",font=dict(size=15)),height=520,
         xaxis_title="Longitude",yaxis_title="Latitude",margin=dict(l=35,r=10,t=55,b=35),
         legend=dict(orientation="h",y=-.14),plot_bgcolor="#F8FAFC",paper_bgcolor="white"
     )
     fig.update_yaxes(scaleanchor="x",scaleratio=1)
+    return fig
+
+
+def facility_temperature_gradient_figure(df, value_col, title, selected_code=None):
+    """Temperature wrapper retained for compatibility/preflight checks."""
+    return facility_contour_gradient_figure(df,value_col,title,"°C",selected_code)
+
+
+def facility_precipitation_gradient_figure(df, value_col, title, selected_code=None):
+    """Rainfall contour surface with labelled mm isolines where variation exists."""
+    return facility_contour_gradient_figure(df,value_col,title,"mm",selected_code)
+
+
+def facility_signal_bar_figure(df, value_col, title, unit, selected_code=None, max_bars=35):
+    """Horizontal facility-ranking bar chart for the active forecast signal."""
+    d=df.copy()
+    d["_v"]=pd.to_numeric(d[value_col],errors="coerce")
+    d=d.dropna(subset=["_v"])
+    if d.empty:
+        return None
+    selected=pd.DataFrame()
+    if selected_code:
+        selected=d[d["REGION_CODE"].astype(str)==str(selected_code)]
+    d=d.sort_values("_v",ascending=False).head(max_bars)
+    if not selected.empty and str(selected.iloc[0]["REGION_CODE"]) not in set(d["REGION_CODE"].astype(str)):
+        d=pd.concat([d,selected],ignore_index=True).drop_duplicates("REGION_CODE",keep="last")
+    d=d.sort_values("_v",ascending=True)
+    colors=["#F59E0B" if selected_code and str(c)==str(selected_code) else "#0E7490" for c in d["REGION_CODE"]]
+    labels=[("★ " if selected_code and str(c)==str(selected_code) else "")+str(n) for c,n in zip(d["REGION_CODE"],d["FacilityName"])]
+    fig=go.Figure(go.Bar(
+        x=d["_v"],y=labels,orientation="h",marker=dict(color=colors),
+        text=[f"{v:.1f} {unit}" for v in d["_v"]],textposition="outside",
+        hovertemplate="<b>%{y}</b><br>%{x:.1f} "+unit+"<extra></extra>"
+    ))
+    fig.update_layout(
+        title=dict(text=title,x=.01,xanchor="left",font=dict(size=15)),height=max(430,26*len(d)+120),
+        xaxis_title=unit,yaxis_title="",margin=dict(l=20,r=55,t=55,b=35),
+        plot_bgcolor="#F8FAFC",paper_bgcolor="white",showlegend=False
+    )
+    return fig
+
+
+def facility_two_model_bar_figure(df, col_a, col_b, title, unit, selected_code=None, max_bars=30):
+    """Grouped ECMWF/GFS bars across facilities; selected facility is marked with a star."""
+    d=df.copy()
+    d["_a"]=pd.to_numeric(d[col_a],errors="coerce")
+    d["_b"]=pd.to_numeric(d[col_b],errors="coerce")
+    d["_mean"]=d[["_a","_b"]].mean(axis=1)
+    d=d.dropna(subset=["_mean"])
+    if d.empty:
+        return None
+    selected=pd.DataFrame()
+    if selected_code:
+        selected=d[d["REGION_CODE"].astype(str)==str(selected_code)]
+    d=d.sort_values("_mean",ascending=False).head(max_bars)
+    if not selected.empty and str(selected.iloc[0]["REGION_CODE"]) not in set(d["REGION_CODE"].astype(str)):
+        d=pd.concat([d,selected],ignore_index=True).drop_duplicates("REGION_CODE",keep="last")
+    d=d.sort_values("_mean",ascending=True)
+    labels=[("★ " if selected_code and str(c)==str(selected_code) else "")+str(n) for c,n in zip(d["REGION_CODE"],d["FacilityName"])]
+    fig=go.Figure()
+    fig.add_trace(go.Bar(x=d["_a"],y=labels,orientation="h",name="ECMWF IFS HRES",marker_color="#075985",text=[f"{v:.1f}" if pd.notna(v) else "" for v in d["_a"]],textposition="outside"))
+    fig.add_trace(go.Bar(x=d["_b"],y=labels,orientation="h",name="NOAA GFS",marker_color="#7C3AED",text=[f"{v:.1f}" if pd.notna(v) else "" for v in d["_b"]],textposition="outside"))
+    fig.update_layout(
+        barmode="group",title=dict(text=title,x=.01,xanchor="left",font=dict(size=15)),
+        height=max(460,30*len(d)+140),xaxis_title=unit,yaxis_title="",
+        margin=dict(l=20,r=55,t=55,b=40),plot_bgcolor="#F8FAFC",paper_bgcolor="white",
+        legend=dict(orientation="h",y=1.04,x=0)
+    )
     return fig
 
 
@@ -3199,14 +3355,19 @@ if geo_error is None and not regions.empty:
         unit=unit_for(hazard,horizon,mode)
 
         st.markdown('<div class="section">Spatial summary</div>',unsafe_allow_html=True)
-        cols=st.columns(6)
-        vals=[fv,sm["min"],sm["mean"],sm["median"],sm["max"],np.nan]
-        labels=[focus,"Minimum","Mean","Median","Maximum","Highest-signal area"]
-        for i,(c,l,v) in enumerate(zip(cols,labels,vals)):
-            if l=="Highest-signal area":
-                c.metric(l,maxrow.REGION_NAME if maxrow is not None else "—")
-            else:
-                c.metric(l,fmt(v,unit))
+        cols=st.columns(7)
+        cols[0].metric("Selected area",focus)
+        cols[1].metric("Selected area value",fmt(fv,unit))
+        cols[2].metric("Minimum",fmt(sm["min"],unit))
+        cols[3].metric("Mean",fmt(sm["mean"],unit))
+        cols[4].metric("Median",fmt(sm["median"],unit))
+        cols[5].metric("Maximum",fmt(sm["max"],unit))
+        cols[6].metric("Mapped range",fmt(sm["max"]-sm["min"],unit) if np.isfinite(sm["max"]) and np.isfinite(sm["min"]) else "—")
+        st.caption(
+            f"Highest-signal mapped area: {maxrow.REGION_NAME if maxrow is not None else '—'}. "
+            "The selected district/municipality value is the forecast sampled at that area's representative point in the current workflow; "
+            "minimum/mean/median/maximum summarize all mapped administrative areas in the current national/state view."
+        )
         if unit=="%":
             st.caption(f"{focus}: {risk_label(fv)} · highest area: {maxrow.REGION_NAME if maxrow is not None else '—'} ({risk_label(sm['max'])}).")
 
@@ -3251,11 +3412,24 @@ if geo_error is None and not regions.empty:
                     if not sel.empty:
                         selected_facility_value=float(sel.iloc[0]["value"]) if pd.notna(sel.iloc[0]["value"]) else np.nan
                 top_facility=facility_forecast_df.iloc[0] if len(facility_forecast_df) else None
-                fm1,fm2,fm3,fm4=st.columns(4)
-                fm1.metric("Facilities screened",f"{len(facility_forecast_df):,}")
-                fm2.metric("Selected facility",selected_facility.FacilityName if selected_facility is not None else "Overview")
-                fm3.metric("Selected signal",fmt(selected_facility_value,selected_facility_unit) if selected_facility is not None else "—")
-                fm4.metric("Highest hazard signal",top_facility.FacilityName if top_facility is not None else "—")
+                fvals=pd.to_numeric(facility_forecast_df["value"],errors="coerce").dropna()
+                fmin=float(fvals.min()) if len(fvals) else np.nan
+                fmean=float(fvals.mean()) if len(fvals) else np.nan
+                fmedian=float(fvals.median()) if len(fvals) else np.nan
+                fmax=float(fvals.max()) if len(fvals) else np.nan
+                frange=fmax-fmin if np.isfinite(fmax) and np.isfinite(fmin) else np.nan
+                fm1,fm2,fm3,fm4,fm5,fm6=st.columns(6)
+                fm1.metric("Parent area",focus)
+                fm2.metric("Facilities screened",f"{len(facility_forecast_df):,}")
+                fm3.metric("Selected facility",selected_facility.FacilityName if selected_facility is not None else "Overview")
+                fm4.metric("Selected signal",fmt(selected_facility_value,selected_facility_unit) if selected_facility is not None else "—")
+                fm5.metric("Facility mean",fmt(fmean,selected_facility_unit))
+                fm6.metric("Facility range",f"{fmt(fmin,selected_facility_unit)} – {fmt(fmax,selected_facility_unit)}" if np.isfinite(fmin) and np.isfinite(fmax) else "—")
+                st.caption(
+                    f"Within mapped facilities under {focus}: minimum {fmt(fmin,selected_facility_unit)}, mean {fmt(fmean,selected_facility_unit)}, "
+                    f"median {fmt(fmedian,selected_facility_unit)}, maximum {fmt(fmax,selected_facility_unit)}, range width {fmt(frange,selected_facility_unit)}. "
+                    f"Highest current facility signal: {top_facility.FacilityName if top_facility is not None else '—'}."
+                )
                 if drought_physical:
                     st.caption("For a physical drought/dry-anomaly view, more-negative precipitation anomaly indicates a drier signal; the table is therefore ordered from most negative upward.")
                 elif selected_facility_unit!="%":
@@ -3272,6 +3446,18 @@ if geo_error is None and not regions.empty:
                 with fright:
                     table_cols=[c for c in ["Rank","FacilityName","FacilityType","ForecastDisplay","SignalClass","Source"] if c in facility_forecast_df]
                     st.dataframe(facility_forecast_df[table_cols].head(35),hide_index=True,use_container_width=True,height=520)
+
+                st.markdown("#### Facility forecast values · bar comparison")
+                st.caption(
+                    "Bars are the direct point-specific forecast values sampled at mapped facility coordinates; they are not interpolated. "
+                    "The selected facility is highlighted with a gold bar/star when it is in the displayed set."
+                )
+                facility_bar=facility_signal_bar_figure(
+                    facility_forecast_df,"value",f"{focus} · facility {hazard.lower()} comparison",selected_facility_unit,facility_choice_code
+                )
+                if facility_bar is not None:
+                    st.plotly_chart(facility_bar,use_container_width=True,config={"displayModeBar":True,"responsive":True})
+
                 if horizon in ("Short range","Medium range") and hazard in ("Heatwave","Flood – rainfall","Compound – Flood + Heatwave"):
                     try:
                         with st.spinner("Comparing ECMWF IFS and NOAA GFS across facility locations..."):
@@ -3279,18 +3465,21 @@ if geo_error is None and not regions.empty:
                         if not facility_model_df.empty:
                             st.markdown("#### Facility spatial model comparison")
                             st.caption(
-                                "Each forecast model is sampled at the health-facility coordinates. For temperature, the coloured surface is an inverse-distance interpolation of those facility point forecasts for visual interpretation; it is not the native model grid."
+                                "Each forecast model is sampled at the health-facility coordinates. Labelled contour lines show the interpolated value directly on the surface. "
+                                "The coloured surface is an inverse-distance interpolation of facility point forecasts for visual interpretation; it is not the native ECMWF/GFS grid. "
+                                "The bar charts below use the original sampled facility values, not the interpolation."
                             )
+                            selrow=facility_model_df[facility_model_df["REGION_CODE"].astype(str)==str(facility_choice_code)] if facility_choice_code else pd.DataFrame()
+
                             if hazard in ("Heatwave","Compound – Flood + Heatwave"):
+                                st.markdown("##### Temperature · ECMWF IFS HRES vs NOAA GFS")
                                 ecvals=pd.to_numeric(facility_model_df["ECMWF_Tmax_C"],errors="coerce").dropna()
                                 gfvals=pd.to_numeric(facility_model_df["GFS_Tmax_C"],errors="coerce").dropna()
-                                selrow=facility_model_df[facility_model_df["REGION_CODE"].astype(str)==str(facility_choice_code)] if facility_choice_code else pd.DataFrame()
                                 mc1,mc2,mc3,mc4=st.columns(4)
                                 mc1.metric("ECMWF facility range","—" if ecvals.empty else f"{ecvals.min():.1f}–{ecvals.max():.1f} °C")
                                 mc2.metric("NOAA GFS facility range","—" if gfvals.empty else f"{gfvals.min():.1f}–{gfvals.max():.1f} °C")
                                 mc3.metric("Selected · ECMWF","—" if selrow.empty or pd.isna(selrow.iloc[0]["ECMWF_Tmax_C"]) else f"{float(selrow.iloc[0]['ECMWF_Tmax_C']):.1f} °C")
                                 mc4.metric("Selected · NOAA GFS","—" if selrow.empty or pd.isna(selrow.iloc[0]["GFS_Tmax_C"]) else f"{float(selrow.iloc[0]['GFS_Tmax_C']):.1f} °C")
-                            if hazard in ("Heatwave","Compound – Flood + Heatwave"):
                                 sc1,sc2=st.columns(2,gap="large")
                                 with sc1:
                                     f1=facility_temperature_gradient_figure(facility_model_df,"ECMWF_Tmax_C","ECMWF IFS HRES · facility Tmax spatial gradient",facility_choice_code)
@@ -3298,14 +3487,45 @@ if geo_error is None and not regions.empty:
                                 with sc2:
                                     f2=facility_temperature_gradient_figure(facility_model_df,"GFS_Tmax_C","NOAA GFS · facility Tmax spatial gradient",facility_choice_code)
                                     if f2 is not None: st.plotly_chart(f2,use_container_width=True,config={"displayModeBar":True,"responsive":True})
+                                heat_bars=facility_two_model_bar_figure(
+                                    facility_model_df,"ECMWF_Tmax_C","GFS_Tmax_C",
+                                    f"{focus} · facility Tmax · ECMWF vs NOAA GFS","°C",facility_choice_code
+                                )
+                                if heat_bars is not None:
+                                    st.plotly_chart(heat_bars,use_container_width=True,config={"displayModeBar":True,"responsive":True})
                                 diff_fig=facility_point_spatial_figure(facility_model_df,"Tmax_ECMWF_minus_GFS_C","Model difference at facilities · ECMWF minus NOAA GFS","°C",facility_choice_code,basemap_name,diverging=True)
                                 st.plotly_chart(diff_fig,use_container_width=True,config={"displayModeBar":True,"scrollZoom":True,"responsive":True})
-                            else:
+
+                            if hazard in ("Flood – rainfall","Compound – Flood + Heatwave"):
+                                st.markdown("##### Precipitation · ECMWF IFS HRES vs NOAA GFS")
+                                ervals=pd.to_numeric(facility_model_df["ECMWF_Rain3_mm"],errors="coerce").dropna()
+                                grvals=pd.to_numeric(facility_model_df["GFS_Rain3_mm"],errors="coerce").dropna()
+                                rc1,rc2,rc3,rc4=st.columns(4)
+                                rc1.metric("ECMWF rainfall range","—" if ervals.empty else f"{ervals.min():.1f}–{ervals.max():.1f} mm")
+                                rc2.metric("NOAA GFS rainfall range","—" if grvals.empty else f"{grvals.min():.1f}–{grvals.max():.1f} mm")
+                                rc3.metric("Selected · ECMWF rain","—" if selrow.empty or pd.isna(selrow.iloc[0]["ECMWF_Rain3_mm"]) else f"{float(selrow.iloc[0]['ECMWF_Rain3_mm']):.1f} mm")
+                                rc4.metric("Selected · NOAA GFS rain","—" if selrow.empty or pd.isna(selrow.iloc[0]["GFS_Rain3_mm"]) else f"{float(selrow.iloc[0]['GFS_Rain3_mm']):.1f} mm")
                                 sc1,sc2=st.columns(2,gap="large")
                                 with sc1:
-                                    st.plotly_chart(facility_point_spatial_figure(facility_model_df,"ECMWF_Rain3_mm","ECMWF IFS HRES · maximum 3-day rainfall at facilities","mm",facility_choice_code,basemap_name),use_container_width=True)
+                                    rf1=facility_precipitation_gradient_figure(facility_model_df,"ECMWF_Rain3_mm","ECMWF IFS HRES · facility 3-day rainfall spatial gradient",facility_choice_code)
+                                    if rf1 is not None:
+                                        st.plotly_chart(rf1,use_container_width=True,config={"displayModeBar":True,"responsive":True})
+                                    else:
+                                        st.caption("ECMWF facility rainfall values are spatially uniform in this valid window, so a labelled contour gradient would be artificial; the point map is shown instead.")
+                                        st.plotly_chart(facility_point_spatial_figure(facility_model_df,"ECMWF_Rain3_mm","ECMWF IFS HRES · maximum 3-day rainfall at facilities","mm",facility_choice_code,basemap_name),use_container_width=True)
                                 with sc2:
-                                    st.plotly_chart(facility_point_spatial_figure(facility_model_df,"GFS_Rain3_mm","NOAA GFS · maximum 3-day rainfall at facilities","mm",facility_choice_code,basemap_name),use_container_width=True)
+                                    rf2=facility_precipitation_gradient_figure(facility_model_df,"GFS_Rain3_mm","NOAA GFS · facility 3-day rainfall spatial gradient",facility_choice_code)
+                                    if rf2 is not None:
+                                        st.plotly_chart(rf2,use_container_width=True,config={"displayModeBar":True,"responsive":True})
+                                    else:
+                                        st.caption("NOAA GFS facility rainfall values are spatially uniform in this valid window, so a labelled contour gradient would be artificial; the point map is shown instead.")
+                                        st.plotly_chart(facility_point_spatial_figure(facility_model_df,"GFS_Rain3_mm","NOAA GFS · maximum 3-day rainfall at facilities","mm",facility_choice_code,basemap_name),use_container_width=True)
+                                rain_bars=facility_two_model_bar_figure(
+                                    facility_model_df,"ECMWF_Rain3_mm","GFS_Rain3_mm",
+                                    f"{focus} · facility maximum 3-day rainfall · ECMWF vs NOAA GFS","mm",facility_choice_code
+                                )
+                                if rain_bars is not None:
+                                    st.plotly_chart(rain_bars,use_container_width=True,config={"displayModeBar":True,"responsive":True})
                                 st.plotly_chart(facility_point_spatial_figure(facility_model_df,"Rain3_ECMWF_minus_GFS_mm","Model difference at facilities · ECMWF minus NOAA GFS","mm",facility_choice_code,basemap_name,diverging=True),use_container_width=True)
                             comp_cols=[c for c in ["FacilityName","ECMWF_Tmax_C","GFS_Tmax_C","Tmax_ECMWF_minus_GFS_C","ECMWF_Rain3_mm","GFS_Rain3_mm","Rain3_ECMWF_minus_GFS_mm"] if c in facility_model_df]
                             with st.expander("Facility model-comparison values",expanded=False):
@@ -3332,6 +3552,15 @@ if geo_error is None and not regions.empty:
     meta=regions[regions.REGION_NAME==focus].iloc[0].copy()
     analysis_label=focus
     analysis_level="District" if country=="Zambia" else "Municipality"
+    facility_stats={}
+    if isinstance(facility_forecast_df,pd.DataFrame) and not facility_forecast_df.empty and "value" in facility_forecast_df:
+        _fv=pd.to_numeric(facility_forecast_df["value"],errors="coerce").dropna()
+        if len(_fv):
+            facility_stats={
+                "min":float(_fv.min()),"mean":float(_fv.mean()),"median":float(_fv.median()),
+                "max":float(_fv.max()),"range":float(_fv.max()-_fv.min()),"n":int(len(_fv))
+            }
+
     analysis_facility_id=""
     analysis_facility_type=""
     analysis_registry_source=""
@@ -3348,6 +3577,41 @@ if geo_error is None and not regions.empty:
             f'parent area: {focus} · coordinates: {float(meta.rep_lat):.5f}, {float(meta.rep_lon):.5f} · registry: {analysis_registry_source}. '
             f'The detailed forecast tabs below now use the facility coordinates.</div>',unsafe_allow_html=True
         )
+    point_compare_prefetch=pd.DataFrame()
+    point_compare_status_prefetch=""
+    if horizon in ("Short range","Medium range") and hazard!="Flood – river discharge (GloFAS)":
+        try:
+            point_compare_prefetch,point_compare_status_prefetch=build_point_model_comparison(meta.rep_lat,meta.rep_lon,horizon,period)
+            if not point_compare_prefetch.empty:
+                st.markdown(f"#### Selected-location valid-period summary · {analysis_label}")
+                st.caption(
+                    f"Analysis level: {analysis_level} · parent area: {focus}. These statistics summarize the daily forecast values inside the selected valid window at the selected coordinate."
+                )
+                if hazard in ("Heatwave","Compound – Flood + Heatwave"):
+                    for _label,_col in (("ECMWF IFS HRES","ECMWF_Tmax_C"),("NOAA GFS","GFS_Tmax_C")):
+                        _v=pd.to_numeric(point_compare_prefetch[_col],errors="coerce").dropna()
+                        if len(_v):
+                            _c=st.columns(4)
+                            _c[0].metric(f"{_label} · minimum",f"{_v.min():.1f} °C")
+                            _c[1].metric(f"{_label} · mean",f"{_v.mean():.1f} °C")
+                            _c[2].metric(f"{_label} · maximum",f"{_v.max():.1f} °C")
+                            _c[3].metric(f"{_label} · range",f"{(_v.max()-_v.min()):.1f} °C")
+                if hazard in ("Flood – rainfall","Compound – Flood + Heatwave","Drought / dry anomaly"):
+                    for _label,_col in (("ECMWF IFS HRES","ECMWF_Precip_mm"),("NOAA GFS","GFS_Precip_mm")):
+                        if _col in point_compare_prefetch:
+                            _v=pd.to_numeric(point_compare_prefetch[_col],errors="coerce").dropna()
+                            if len(_v):
+                                _c=st.columns(4)
+                                _c[0].metric(f"{_label} · minimum",f"{_v.min():.1f} mm/day")
+                                _c[1].metric(f"{_label} · mean",f"{_v.mean():.1f} mm/day")
+                                _c[2].metric(f"{_label} · maximum",f"{_v.max():.1f} mm/day")
+                                _c[3].metric(f"{_label} · range",f"{(_v.max()-_v.min()):.1f} mm/day")
+                    _et=float(pd.to_numeric(point_compare_prefetch.get("ECMWF_Precip_mm"),errors="coerce").sum()) if "ECMWF_Precip_mm" in point_compare_prefetch else np.nan
+                    _gt=float(pd.to_numeric(point_compare_prefetch.get("GFS_Precip_mm"),errors="coerce").sum()) if "GFS_Precip_mm" in point_compare_prefetch else np.nan
+                    st.caption(f"Valid-window precipitation totals · ECMWF {fmt(_et,'mm')} · NOAA GFS {fmt(_gt,'mm')}.")
+        except Exception as exc:
+            point_compare_status_prefetch=f"unavailable: {exc}"
+
     analysis_slug=safe_file_part(analysis_label)
     tabs=st.tabs(["Time series & uncertainty","River hydrology","Climate drivers","Decision-maker briefing","Documentation · return periods · SDM","Downloads · CSV / Stella","Forecast verification · REACH pilots"])
 
@@ -3369,7 +3633,10 @@ if geo_error is None and not regions.empty:
         st.markdown(f"### Forecast time series · {analysis_label}")
         if horizon in ("Short range","Medium range") and hazard!="Flood – river discharge (GloFAS)":
             try:
-                point_compare_df,point_compare_status=build_point_model_comparison(meta.rep_lat,meta.rep_lon,horizon,period)
+                point_compare_df=point_compare_prefetch.copy()
+                point_compare_status=point_compare_status_prefetch
+                if point_compare_df.empty:
+                    point_compare_df,point_compare_status=build_point_model_comparison(meta.rep_lat,meta.rep_lon,horizon,period)
                 if not point_compare_df.empty:
                     st.markdown("#### Deterministic model comparison and ERA5 historical context")
                     st.caption(
@@ -3863,16 +4130,25 @@ if geo_error is None and not regions.empty:
             facility_brief=""
             if selected_facility is not None:
                 facility_signal=(fmt(selected_facility_value,selected_facility_unit) if np.isfinite(selected_facility_value) else "comparison value unavailable")
+                _fstats=""
+                if facility_stats:
+                    _fstats=(
+                        f" Across {facility_stats.get('n',0)} mapped facilities evaluated under {focus}, the forecast values range from "
+                        f"{fmt(facility_stats.get('min',np.nan),selected_facility_unit)} to {fmt(facility_stats.get('max',np.nan),selected_facility_unit)}, "
+                        f"with mean {fmt(facility_stats.get('mean',np.nan),selected_facility_unit)} and median {fmt(facility_stats.get('median',np.nan),selected_facility_unit)}."
+                    )
                 facility_brief=(
                     f"**Facility drill-down:** {analysis_label} ({analysis_facility_type}) is nested under {focus}. "
-                    f"The facility-coordinate hazard/exposure signal is {facility_signal}. "
+                    f"The facility-coordinate hazard/exposure signal is {facility_signal}.{_fstats} "
+                    "Facility values are point-specific model samples; the spatial contour is a visual interpolation only. "
                     "This does not by itself represent operational readiness or service-disruption risk.\n\n"
                 )
             base_summary=(
                 f"**{country} · {horizon} · {hazard}**\n\n"
                 f"**Forecast window:** {window}\n\n"
-                f"**Spatial result:** Across {len(map_df)} areas, the selected map value ranges from {fmt(sm['min'],unit)} to {fmt(sm['max'],unit)}, "
-                f"with mean {fmt(sm['mean'],unit)} and median {fmt(sm['median'],unit)}. Parent area {focus} is {fmt(fv,unit)}. "
+                f"**Spatial result:** Selected parent area **{focus}** has a representative-point forecast value of {fmt(fv,unit)}. "
+                f"Across {len(map_df)} mapped administrative areas, values range from {fmt(sm['min'],unit)} to {fmt(sm['max'],unit)} "
+                f"(range width {fmt(sm['max']-sm['min'],unit)}), with mean {fmt(sm['mean'],unit)} and median {fmt(sm['median'],unit)}. "
                 f"The highest mapped signal is in **{max_area}**.\n\n"
                 f"{facility_brief}"
                 f"**Timing:** {peak}\n\n"
@@ -3896,11 +4172,71 @@ if geo_error is None and not regions.empty:
     with tabs[4]:
         st.markdown("## Documentation, return periods and system-dynamics integration")
         st.caption(
-            "This section explains the data sources, climate indices, return periods and how forecast information is transferred into the REACH System Dynamics Model (Stella). "
-            "Seasonal climate indices provide large-scale context; the district or municipality warning is based on the forecast and hydrological evidence shown in the portal."
+            "This section explains national spatial coverage, the nested district/municipality → facility workflow, data provenance, interpretation, return periods and how forecast information is transferred into the REACH System Dynamics Model (Stella)."
         )
 
-        st.markdown("### 1 · Return-period forecast for the selected area")
+        st.markdown("### 1 · Geographic and health-facility coverage")
+        st.markdown(
+            """
+**Administrative forecast coverage**
+- **Zambia:** all **116 districts** are available for district-level forecast screening.
+- **Brazil:** all **5,572 municipalities** are available for municipality-level forecast screening.
+- **REACH facility drill-down pilots:** **Senanga** and **Sinazongwe** in Zambia; **Recife** and **Palmares** in Brazil.
+
+**How the hierarchy works**
+- A health facility is always nested under its parent district/municipality.
+- The district/municipality value is the model value sampled at the administrative area's representative point in the current workflow.
+- A facility value is the same forecast sampled at the facility's own latitude/longitude.
+- Facility minimum/mean/median/maximum/range statistics refer to the mapped facilities evaluated within the selected parent area; they are **not** the min/max over every grid cell in the district.
+- Labelled contour maps are an inverse-distance visual interpolation of facility point values. The bars and facility table show the direct sampled values.
+"""
+        )
+        project_counts=zambia_project_facility_counts()
+        cov_rows=[
+            {"Country":"Zambia","REACH pilot":"Senanga","Bundled REACH facility-detail records":project_counts.get("Senanga") or "—","Runtime mapped registry":"Shown live in selector"},
+            {"Country":"Zambia","REACH pilot":"Sinazongwe","Bundled REACH facility-detail records":project_counts.get("Sinazongwe") or "—","Runtime mapped registry":"Shown live in selector"},
+            {"Country":"Brazil","REACH pilot":"Recife","Bundled REACH facility-detail records":"—","Runtime mapped registry":"CNES live"},
+            {"Country":"Brazil","REACH pilot":"Palmares","Bundled REACH facility-detail records":"—","Runtime mapped registry":"CNES live"},
+        ]
+        st.dataframe(pd.DataFrame(cov_rows),hide_index=True,use_container_width=True)
+        st.caption(
+            "The bundled Zambia facility-detail workbook currently lists 21 Senanga facilities and 32 Sinazongwe facilities when readable in the deployed environment. "
+            "The number that can be mapped/forecast can differ because a facility must have usable coordinates in the active registry. Brazil facility totals are read live from CNES and can change as the registry is updated."
+        )
+        if (country,focus) in PILOT and not facility_registry.empty:
+            st.info(f"Current active pilot: {focus} · {len(facility_registry):,} mapped facilities available in this session · registry status: {facility_status}.")
+
+        if st.button("Load / refresh live facility counts for all four REACH pilots",key="doc_load_all_facility_counts"):
+            with st.spinner("Reading Zambia NSDI and Brazil CNES facility registries..."):
+                live_cov,zm_nat,zm_nat_status=all_pilot_live_facility_counts()
+            st.session_state["doc_live_facility_coverage"]=live_cov
+            st.session_state["doc_zm_national_facility_count"]=zm_nat
+            st.session_state["doc_zm_national_facility_status"]=zm_nat_status
+        if "doc_live_facility_coverage" in st.session_state:
+            st.markdown("**Live mapped facility coverage · current registry response**")
+            st.dataframe(st.session_state["doc_live_facility_coverage"],hide_index=True,use_container_width=True)
+            _zn=st.session_state.get("doc_zm_national_facility_count")
+            _zs=st.session_state.get("doc_zm_national_facility_status","")
+            if _zn is not None:
+                st.metric("Zambia national NSDI facility registry count",f"{int(_zn):,}")
+                st.caption(f"National facility source status: {_zs}. The app intentionally enables facility-level forecast drill-down only for the two Zambia REACH pilot districts in this release.")
+            else:
+                st.caption(f"Zambia national facility count was not returned by the registry in this session ({_zs}).")
+
+        st.markdown("### 2 · How to interpret district/municipality and facility values")
+        st.markdown(
+            f"""
+- **Selected parent area:** **{focus}**. The current parent-area forecast is **{fmt(fv,unit)}**.
+- **Administrative summary:** the national/state Spatial summary reports the minimum, mean, median, maximum and mapped range across the administrative areas displayed.
+- **Facility summary:** when a pilot facility registry is available, the Health-facility section reports minimum, mean, median, maximum and range across the mapped facilities under the selected parent area.
+- **Selected facility:** if a facility is chosen, the detailed tabs use that facility's coordinates. The facility is still nested under **{focus}**.
+- **ECMWF vs NOAA GFS:** side-by-side spatial surfaces/bars show model agreement or disagreement at facility points.
+- **ERA5:** in future-forecast comparisons, ERA5 is a 1981–2014 historical climatology/threshold reference for the same calendar days, not a future observation. Historical forecast skill against ERA5 is handled separately in Forecast verification.
+- **Operational risk boundary:** a high hazard/exposure value does not automatically mean a facility will fail. Operational risk requires explicit access/readiness evidence such as roads, power, WASH, staffing, commodities/cold chain and service availability.
+"""
+        )
+
+        st.markdown("### 3 · Return-period forecast for the selected area")
         trigger_rp = st.selectbox(
             "Model return-period threshold",
             [2, 5, 10, 20, 50, 100],
@@ -4110,7 +4446,7 @@ if geo_error is None and not regions.empty:
         except Exception as exc:
             st.warning(f"Return-period forecast could not be calculated for this view: {exc}")
 
-        st.markdown("### 2 · Understanding 2-, 5-, 10-, 20-, 50- and 100-year return levels")
+        st.markdown("### 4 · Understanding 2-, 5-, 10-, 20-, 50- and 100-year return levels")
         st.markdown(
             """
 A **return period** is a rarity label derived from an extreme-value distribution. If the annual exceedance probability is `p`, then approximately:
@@ -4135,7 +4471,7 @@ GloFAS operational flood summaries use **2-, 5- and 20-year** return-period seve
 """
         )
 
-        st.markdown("### 3 · Heatwave occurrence and return-period severity")
+        st.markdown("### 5 · Heatwave occurrence and return-period severity")
         st.markdown(
             """
 The REACH framework uses **two complementary heat measures**:
@@ -4148,7 +4484,7 @@ The return-period class is a *rarity/severity label*; actual heat impacts should
 """
         )
 
-        st.markdown("### 4 · Data-source and climate-index glossary")
+        st.markdown("### 6 · Data-source and climate-index glossary")
         glossary = pd.DataFrame([
             ["NOAA","National Oceanic and Atmospheric Administration","US agency providing weather, ocean and climate observations and forecasts."],
             ["CPC","Climate Prediction Center","NOAA centre that issues official ENSO/RONI probabilities and seasonal climate guidance."],
@@ -4200,7 +4536,7 @@ The return-period class is a *rarity/severity label*; actual heat impacts should
 """
         )
 
-        st.markdown("### 5 · Interpreting ENSO/RONI, IOD/DMI and Tropical Atlantic indices")
+        st.markdown("### 7 · Interpreting ENSO/RONI, IOD/DMI and Tropical Atlantic indices")
         st.markdown(
             """
 - **RONI > +0.5 °C** supports an El Niño classification; **RONI < −0.5 °C** supports La Niña when the persistence criteria are met. NOAA now uses RONI for official ENSO monitoring/prediction. The red/grey/blue ENSO bars are probabilities of **El Niño / Neutral / La Niña**, not probabilities of flood or heatwave in a REACH district.
@@ -4210,7 +4546,7 @@ The return-period class is a *rarity/severity label*; actual heat impacts should
 """
         )
 
-        st.markdown("### 6 · REACH System Dynamics Model / Stella integration")
+        st.markdown("### 8 · REACH System Dynamics Model / Stella integration")
         st.info(
             "For Stella, the return-period table provides both the physical threshold value (for example °C, mm/day or m³/s) "
             "and the selected-window forecast probability of exceeding that threshold. This allows the model to use a physical rule, a probability rule, or both."
@@ -4262,7 +4598,7 @@ This index does not replace the physical hazard. Before impact, it supports prep
         ], columns=["Module","Role in the early-warning pathway","How forecast information is used"])
         st.dataframe(module_links, hide_index=True, use_container_width=True)
 
-        st.markdown("### 7 · Lead-time action framework")
+        st.markdown("### 9 · Lead-time action framework")
         st.markdown(
             """
 Each forecast horizon supports a **different level of preparedness and action**:
@@ -4276,7 +4612,7 @@ This staged approach avoids using one seasonal mean or one extreme ensemble memb
 """
         )
 
-        st.markdown("### 8 · Evidence base and design precedents")
+        st.markdown("### 10 · Evidence base and design precedents")
         papers = pd.DataFrame([
             ["Coughlan de Perez et al. (2015)","Links forecast probability and hazard magnitude to predefined early actions and financing.","Supports probability-and-severity thresholds for Module 08 action rules."],
             ["Forecast-based action trade-off study (2019)","Shows why different lead times can support different early actions.","Supports staged preparedness from seasonal to short range."],
@@ -4333,7 +4669,7 @@ The same four outcomes are also known as the entries of a **confusion matrix**.
             "R² is shown only when the verifying reference contains enough variation; otherwise it is reported as not applicable rather than being manufactured."
         )
 
-        st.markdown("### 9 · Forecast synthesis principle")
+        st.markdown("### 11 · Forecast synthesis principle")
         st.markdown(
             """
 A robust operational briefing should make **forecast discrepancies, convergence and source hierarchy visible**.
@@ -4343,7 +4679,7 @@ Historical analogue relationships are supporting context and should not be treat
 """
         )
 
-        st.markdown("### 10 · Source links")
+        st.markdown("### 12 · Source links")
         link_cols = st.columns(4)
         with link_cols[0]:
             st.link_button("NOAA CPC RONI / ENSO", CPC_ENSO_URL, use_container_width=True)
@@ -4953,7 +5289,7 @@ Continuous indicators test numerical forecast accuracy; percentile-event indicat
         exp=map_df.copy()
         exp["country"]=country;exp["hazard"]=hazard;exp["horizon"]=horizon;exp["period"]=period;exp["map_mode"]=mode;exp["unit"]=unit_for(hazard,horizon,mode)
         exp["retrieved_utc"]=datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-        st.download_button("Download spatial forecast table",exp.to_csv(index=False).encode(),file_name=f"REACH_EWS_V5_{country}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",mime="text/csv",use_container_width=True)
+        st.download_button("Download spatial forecast table",exp.to_csv(index=False).encode(),file_name=f"REACH_EWS_V7_{country}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",mime="text/csv",use_container_width=True)
 
     st.markdown(f'<div class="good"><b>Selected health-system action:</b><br>{HORIZONS[horizon]["action"]}</div>',unsafe_allow_html=True)
     if (country,focus) in PILOT:

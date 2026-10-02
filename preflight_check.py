@@ -113,6 +113,15 @@ expected_text = [
     'ECMWF · NOAA GFS · ERA5 historical context',
     'ERA5 is shown as 1981–2014 historical climatology/threshold context',
     'facility_ecmwf_gfs_comparison.csv',
+    'facility_contour_gradient_figure',
+    'facility_precipitation_gradient_figure',
+    'facility_signal_bar_figure',
+    'facility_two_model_bar_figure',
+    'showlabels=True',
+    'Facility forecast values · bar comparison',
+    'Geographic and health-facility coverage',
+    'Load / refresh live facility counts for all four REACH pilots',
+    'Mapped range',
 ]
 for text in expected_text:
     if text not in source:
