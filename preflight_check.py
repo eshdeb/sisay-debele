@@ -106,8 +106,13 @@ expected_text = [
     "facility_registry.csv",
     "FacilityRegistrySource",
     "Historical forecast verification on this tab remains at the parent pilot-area level",
-    'button[data-baseweb="tab"]',
-    'div[data-testid="stSelectbox"] div[data-baseweb="select"] > div',
+    '[data-testid="stTabs"] [role="tab"]',
+    '[data-testid="stSelectbox"] [role="combobox"]',
+    'facility_temperature_gradient_figure',
+    'facility_two_model_comparison',
+    'ECMWF · NOAA GFS · ERA5 historical context',
+    'ERA5 is shown as 1981–2014 historical climatology/threshold context',
+    'facility_ecmwf_gfs_comparison.csv',
 ]
 for text in expected_text:
     if text not in source:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 _APP_NOTES = """
-REACH Climate–Health Early Warning Data Portal · FINAL V5 · DOCUMENTED RP/SDM
+REACH Climate–Health Early Warning Data Portal · FINAL V6 · FACILITY SPATIAL + MODEL COMPARISON
 
 V5.0 restores/preserves the V4.4 + V4.5 functionality and adds:
 - Zambia + Brazil country selector.
@@ -22,6 +22,9 @@ V5.0 restores/preserves the V4.4 + V4.5 functionality and adds:
 - Source portal with direct hyperlinks.
 - Transparent decision-maker summary plus optional local Ollama rewrite.
 - Pilot-site two-model historical verification: ECMWF IFS vs NOAA GFS against ERA5.
+- Facility-level spatial temperature gradients and point forecasts nested under pilot districts/municipalities.
+- Point-level ECMWF vs NOAA GFS comparison with ERA5 historical climatology and forecast anomalies.
+- High-contrast filled navigation tabs and forecast controls for modern accessible use.
 
 Scientific boundary:
 Compound scores are screening indices unless explicitly described as a forecast
@@ -43,6 +46,7 @@ import pandas as pd
 import requests
 import streamlit as st
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import matplotlib.pyplot as plt
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Polygon as MplPolygon
@@ -106,59 +110,98 @@ div.stButton > button{background:#0F766E;color:white;border:0;border-radius:9px;
 div.stButton > button:hover{background:#115E59;color:white;border:0}
 a[data-testid="stLinkButton"]{background:#0B5A7A;color:white !important;border-radius:10px;border:0;font-weight:800;box-shadow:0 4px 12px rgba(11,90,122,.15)}
 
-/* Modern, high-contrast navigation: every tab is a visible filled control. */
+/* ------------------------------------------------------------------
+   High-contrast analysis navigation and forecast controls.
+   Streamlit 1.64 changed some BaseWeb nesting, so target both test IDs
+   and ARIA roles. The broader selectors are intentional.
+   ------------------------------------------------------------------ */
+[data-testid="stTabs"] [role="tablist"],
 div[data-baseweb="tab-list"]{
-  gap:.42rem !important; flex-wrap:wrap !important; overflow:visible !important;
-  background:#E8EEF5 !important; border:1px solid #CBD5E1 !important;
-  border-radius:15px !important; padding:.48rem !important; margin:.25rem 0 .75rem !important;
+  gap:.46rem !important; display:flex !important; flex-wrap:wrap !important;
+  overflow:visible !important; background:#E7EEF5 !important;
+  border:1px solid #B8C6D6 !important; border-radius:16px !important;
+  padding:.50rem !important; margin:.25rem 0 .85rem !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85) !important;
 }
+[data-testid="stTabs"] [role="tab"],
+[data-testid="stTabs"] button[data-baseweb="tab"],
 button[data-baseweb="tab"]{
-  min-height:44px !important; height:auto !important; white-space:normal !important;
-  border-radius:10px !important; padding:.56rem .80rem !important;
-  color:#FFFFFF !important; font-weight:850 !important; letter-spacing:.005em !important;
-  border:1px solid rgba(255,255,255,.16) !important;
-  background:linear-gradient(135deg,#334155,#1E3A5F) !important;
-  box-shadow:0 3px 9px rgba(15,23,42,.12) !important;
+  min-height:46px !important; height:auto !important; white-space:normal !important;
+  border-radius:11px !important; padding:.60rem .88rem !important;
+  color:#FFFFFF !important; font-weight:850 !important; letter-spacing:.004em !important;
+  border:1px solid rgba(255,255,255,.20) !important;
+  background:#1E3A5F !important;
+  background-image:linear-gradient(135deg,#334155 0%,#1E3A5F 100%) !important;
+  box-shadow:0 4px 10px rgba(15,23,42,.15) !important;
+  opacity:1 !important;
 }
-button[data-baseweb="tab"] p,button[data-baseweb="tab"] span{color:#FFFFFF !important;font-weight:850 !important}
-button[data-baseweb="tab"]:hover{filter:brightness(1.10);transform:translateY(-1px)}
+[data-testid="stTabs"] [role="tab"] *,
+button[data-baseweb="tab"] *{
+  color:#FFFFFF !important; font-weight:850 !important; opacity:1 !important;
+}
+[data-testid="stTabs"] [role="tab"]:hover,
+button[data-baseweb="tab"]:hover{
+  filter:brightness(1.10) !important; transform:translateY(-1px) !important;
+}
+[data-testid="stTabs"] [role="tab"][aria-selected="true"],
 button[data-baseweb="tab"][aria-selected="true"]{
-  background:linear-gradient(135deg,#075985,#0F766E) !important;
+  background:#0F766E !important;
+  background-image:linear-gradient(135deg,#075985 0%,#0F766E 100%) !important;
   color:#FFFFFF !important; border:2px solid #FBBF24 !important;
-  box-shadow:0 6px 16px rgba(7,89,133,.23) !important;
+  box-shadow:0 7px 18px rgba(7,89,133,.28) !important;
 }
-div[data-baseweb="tab-list"] button:nth-child(2){background:linear-gradient(135deg,#0F766E,#115E59) !important}
-div[data-baseweb="tab-list"] button:nth-child(3){background:linear-gradient(135deg,#1D4ED8,#4338CA) !important}
-div[data-baseweb="tab-list"] button:nth-child(4){background:linear-gradient(135deg,#166534,#15803D) !important}
-div[data-baseweb="tab-list"] button:nth-child(5){background:linear-gradient(135deg,#0E7490,#0369A1) !important}
-div[data-baseweb="tab-list"] button:nth-child(6){background:linear-gradient(135deg,#475569,#334155) !important}
-div[data-baseweb="tab-list"] button:nth-child(7){background:linear-gradient(135deg,#6D28D9,#7E22CE) !important}
-div[data-baseweb="tab-list"] button[aria-selected="true"]{background:linear-gradient(135deg,#075985,#0F766E) !important}
+[data-testid="stTabs"] [data-baseweb="tab-highlight"],
+[data-testid="stTabs"] [data-baseweb="tab-border"]{display:none !important;}
+/* Distinct professional hues remain visible even when a tab is inactive. */
+[data-testid="stTabs"] [role="tab"]:nth-child(2){background-image:linear-gradient(135deg,#0F766E,#115E59) !important}
+[data-testid="stTabs"] [role="tab"]:nth-child(3){background-image:linear-gradient(135deg,#1D4ED8,#4338CA) !important}
+[data-testid="stTabs"] [role="tab"]:nth-child(4){background-image:linear-gradient(135deg,#166534,#15803D) !important}
+[data-testid="stTabs"] [role="tab"]:nth-child(5){background-image:linear-gradient(135deg,#0E7490,#0369A1) !important}
+[data-testid="stTabs"] [role="tab"]:nth-child(6){background-image:linear-gradient(135deg,#475569,#334155) !important}
+[data-testid="stTabs"] [role="tab"]:nth-child(7){background-image:linear-gradient(135deg,#6D28D9,#7E22CE) !important}
+[data-testid="stTabs"] [role="tab"][aria-selected="true"]{background-image:linear-gradient(135deg,#075985,#0F766E) !important}
 
-/* Forecast setup controls: strong filled selectors with white bold values. */
-div[data-testid="stSelectbox"] label p,div[data-testid="stNumberInput"] label p,div[data-testid="stSlider"] label p,div[data-testid="stRadio"] label p{
-  color:#0F172A !important;font-weight:800 !important
+/* Forecast setup controls: filled teal/navy controls, white bold selected value. */
+[data-testid="stSelectbox"] label p,
+[data-testid="stNumberInput"] label p,
+[data-testid="stSlider"] label p,
+[data-testid="stRadio"] label p{
+  color:#0F172A !important; font-weight:850 !important;
 }
-div[data-testid="stSelectbox"] div[data-baseweb="select"] > div{
-  background:linear-gradient(135deg,#0B5A7A,#0F766E) !important;
-  border:1px solid #0E7490 !important;border-radius:11px !important;
-  color:#FFFFFF !important;min-height:43px !important;box-shadow:0 4px 12px rgba(15,118,110,.13)
+[data-testid="stSelectbox"] [data-baseweb="select"] > div,
+[data-testid="stSelectbox"] [role="combobox"],
+[data-testid="stSelectbox"] div[aria-haspopup="listbox"]{
+  background:#0B5A7A !important;
+  background-image:linear-gradient(135deg,#0B5A7A 0%,#0F766E 100%) !important;
+  border:1px solid #0E7490 !important; border-radius:11px !important;
+  min-height:44px !important; box-shadow:0 4px 12px rgba(15,118,110,.18) !important;
+  color:#FFFFFF !important;
 }
-div[data-testid="stSelectbox"] div[data-baseweb="select"] *{color:#FFFFFF !important;font-weight:750 !important}
-div[data-testid="stSelectbox"] svg{fill:#FFFFFF !important}
-div[data-testid="stNumberInput"] input,div[data-testid="stTextInput"] input{
-  border-radius:10px !important;border:1px solid #94A3B8 !important;background:#F8FAFC !important;font-weight:700 !important
+[data-testid="stSelectbox"] [data-baseweb="select"] > div *,
+[data-testid="stSelectbox"] [role="combobox"] *,
+[data-testid="stSelectbox"] div[aria-haspopup="listbox"] *{
+  color:#FFFFFF !important; fill:#FFFFFF !important; font-weight:800 !important;
 }
-div[data-testid="stRadio"] div[role="radiogroup"]{gap:.35rem}
-div[data-testid="stRadio"] div[role="radiogroup"] label{
-  background:#E0F2FE;border:1px solid #7DD3FC;border-radius:9px;padding:.28rem .48rem;font-weight:750
+[data-testid="stSelectbox"] svg{fill:#FFFFFF !important;color:#FFFFFF !important}
+[data-baseweb="popover"] [role="listbox"]{background:#FFFFFF !important;border:1px solid #CBD5E1 !important}
+[data-baseweb="popover"] [role="option"],
+[role="listbox"] [role="option"]{color:#0F172A !important;background:#FFFFFF !important;font-weight:700 !important}
+[data-baseweb="popover"] [role="option"]:hover,
+[role="listbox"] [role="option"]:hover{background:#E0F2FE !important;color:#075985 !important}
+[data-testid="stNumberInput"] input,[data-testid="stTextInput"] input{
+  border-radius:10px !important;border:1px solid #94A3B8 !important;background:#F8FAFC !important;font-weight:750 !important
 }
+[data-testid="stRadio"] div[role="radiogroup"]{gap:.35rem}
+[data-testid="stRadio"] div[role="radiogroup"] label{
+  background:#E0F2FE !important;border:1px solid #7DD3FC !important;border-radius:9px !important;padding:.30rem .52rem !important;font-weight:800 !important
+}
+[data-testid="stSlider"] [data-baseweb="slider"] div[role="slider"]{background:#0F766E !important;border-color:#0F766E !important}
 div.stDownloadButton > button{
   background:linear-gradient(135deg,#1D4ED8,#0E7490) !important;color:#FFFFFF !important;
-  border:0 !important;border-radius:10px !important;font-weight:800 !important;
-  box-shadow:0 4px 12px rgba(29,78,216,.14) !important
+  border:0 !important;border-radius:10px !important;font-weight:850 !important;
+  box-shadow:0 4px 12px rgba(29,78,216,.16) !important
 }
-div.stDownloadButton > button:hover{filter:brightness(1.06)}
+div.stDownloadButton > button:hover{filter:brightness(1.07)}
 
 .facility-focus{background:linear-gradient(110deg,#ECFDF5,#EFF6FF);border:1px solid #86EFAC;border-left:6px solid #0F766E;border-radius:14px;padding:12px 15px;margin:9px 0}
 .facility-focus b{color:#064E3B}
@@ -568,7 +611,7 @@ def brazil_facilities_online(region_code, municipality_name):
         lat = r.get("latitude_estabelecimento_decimo_grau") or r.get("latitude")
         lon = r.get("longitude_estabelecimento_decimo_grau") or r.get("longitude")
         code_type = r.get("codigo_tipo_unidade")
-        ftype = r.get("descricao_tipo_unidade") or r.get("descricao_nivel_hierarquia") or (f"CNES type {code_type}" if code_type not in (None,"") else "Health facility")
+        ftype = r.get("descricao_tipo_unidade") or r.get("descricao_nivel_hierarquia") or "Health facility"
         obst = _one_flag(r.get("estabelecimento_possui_centro_obstetrico"))
         neo = _one_flag(r.get("estabelecimento_possui_centro_neonatal"))
         hosp = _one_flag(r.get("estabelecimento_possui_atendimento_hospitalar"))
@@ -641,6 +684,160 @@ def safe_file_part(value):
     x = re.sub(r"[^A-Za-z0-9._-]+", "_", x).strip("_")
     return x[:90] or "area"
 
+
+
+def _meaningful_facility_type(value):
+    """Return a readable facility type; hide raw numeric / 'CNES type 39' style codes."""
+    x = str(value or "").strip()
+    if not x or x.casefold() in {"nan","none","health facility"}:
+        return ""
+    if re.fullmatch(r"(?:cnes\s*type\s*)?\d+(?:\.0)?", x, flags=re.I):
+        return ""
+    return x
+
+
+def facility_dropdown_labels(df):
+    """Prefer the actual facility name. Only add an identifier when names are duplicated."""
+    if df is None or df.empty:
+        return {}
+    counts = df["FacilityName"].astype(str).value_counts()
+    labels = {}
+    for r in df.itertuples():
+        name = str(r.FacilityName).strip() or "Unnamed health facility"
+        if counts.get(name, 0) > 1:
+            fid = str(getattr(r, "FacilityID", "")).strip()
+            suffix = f" · ID {fid}" if fid else ""
+            labels[str(r.REGION_CODE)] = name + suffix
+        else:
+            labels[str(r.REGION_CODE)] = name
+    return labels
+
+
+def _idw_grid(df, value_col, grid_size=70, power=2.0):
+    """Inverse-distance interpolation for visualising facility point forecasts.
+    This is a display surface from sampled facility points, not the native NWP grid.
+    """
+    d = df[["rep_lat","rep_lon",value_col]].copy()
+    d["rep_lat"] = pd.to_numeric(d["rep_lat"], errors="coerce")
+    d["rep_lon"] = pd.to_numeric(d["rep_lon"], errors="coerce")
+    d[value_col] = pd.to_numeric(d[value_col], errors="coerce")
+    d = d.dropna()
+    if len(d) < 3:
+        return None
+    x=d["rep_lon"].to_numpy(float); y=d["rep_lat"].to_numpy(float); z=d[value_col].to_numpy(float)
+    padx=max((x.max()-x.min())*.08, .015); pady=max((y.max()-y.min())*.08, .015)
+    gx=np.linspace(x.min()-padx,x.max()+padx,grid_size)
+    gy=np.linspace(y.min()-pady,y.max()+pady,grid_size)
+    xx,yy=np.meshgrid(gx,gy)
+    dx=xx[...,None]-x[None,None,:]; dy=yy[...,None]-y[None,None,:]
+    dist2=dx*dx+dy*dy
+    w=1.0/np.maximum(dist2,1e-10)**(power/2.0)
+    zz=np.sum(w*z[None,None,:],axis=2)/np.sum(w,axis=2)
+    return gx,gy,zz
+
+
+def facility_temperature_gradient_figure(df, value_col, title, selected_code=None):
+    """Temperature surface + facility points using point-sampled forecast values."""
+    grid=_idw_grid(df,value_col)
+    if grid is None:
+        return None
+    gx,gy,zz=grid
+    vals=pd.to_numeric(df[value_col],errors="coerce")
+    finite=vals.dropna()
+    zmin=float(finite.min()) if len(finite) else float(np.nanmin(zz))
+    zmax=float(finite.max()) if len(finite) else float(np.nanmax(zz))
+    if zmax<=zmin: zmax=zmin+.5
+    temp_scale=[
+        [0.00,"#1D4ED8"],[0.18,"#0EA5E9"],[0.36,"#22D3EE"],
+        [0.52,"#FDE047"],[0.72,"#FB923C"],[0.88,"#EF4444"],[1.00,"#991B1B"]
+    ]
+    fig=go.Figure()
+    fig.add_trace(go.Contour(
+        x=gx,y=gy,z=zz,colorscale=temp_scale,zmin=zmin,zmax=zmax,
+        contours=dict(coloring="heatmap",showlines=False),opacity=.86,
+        colorbar=dict(title="Tmax (°C)",thickness=14,len=.72),
+        hovertemplate="Longitude %{x:.3f}<br>Latitude %{y:.3f}<br>Interpolated Tmax %{z:.1f} °C<extra></extra>",
+        name="Interpolated forecast"
+    ))
+    point_custom=np.stack([df["FacilityName"].astype(str),vals.map(lambda v:"—" if pd.isna(v) else f"{v:.1f} °C")],axis=1)
+    fig.add_trace(go.Scatter(
+        x=df["rep_lon"],y=df["rep_lat"],mode="markers",
+        marker=dict(size=8,color=vals,colorscale=temp_scale,cmin=zmin,cmax=zmax,line=dict(width=.7,color="white"),showscale=False),
+        customdata=point_custom,hovertemplate="<b>%{customdata[0]}</b><br>Tmax: %{customdata[1]}<extra></extra>",
+        name="Health facilities"
+    ))
+    if selected_code:
+        sel=df[df["REGION_CODE"].astype(str)==str(selected_code)]
+        if not sel.empty:
+            r=sel.iloc[0]
+            fig.add_trace(go.Scatter(x=[r.rep_lon],y=[r.rep_lat],mode="markers+text",text=[r.FacilityName],textposition="top center",
+                                     marker=dict(size=15,symbol="star",color="#111827",line=dict(width=1.5,color="#FBBF24")),name="Selected facility"))
+    fig.update_layout(
+        title=dict(text=title,x=.01,xanchor="left",font=dict(size=15)),height=500,
+        xaxis_title="Longitude",yaxis_title="Latitude",margin=dict(l=35,r=10,t=55,b=35),
+        legend=dict(orientation="h",y=-.14),plot_bgcolor="#F8FAFC",paper_bgcolor="white"
+    )
+    fig.update_yaxes(scaleanchor="x",scaleratio=1)
+    return fig
+
+
+def facility_point_spatial_figure(df, value_col, title, unit, selected_code=None, basemap_name="Streets / places", diverging=False):
+    d=df.copy(); vals=pd.to_numeric(d[value_col],errors="coerce")
+    finite=vals.dropna()
+    if diverging:
+        lim=max(.1,float(np.nanquantile(np.abs(finite),.98))) if len(finite) else 1.0
+        cmin,cmax=-lim,lim; scale="RdBu_r"
+    else:
+        cmin=float(finite.quantile(.02)) if len(finite) else 0.0
+        cmax=float(finite.quantile(.98)) if len(finite) else 1.0
+        if cmax<=cmin:cmax=cmin+1
+        scale="YlOrRd" if unit=="°C" else "Blues"
+    fig=go.Figure(go.Scattermap(
+        lon=d["rep_lon"],lat=d["rep_lat"],mode="markers",
+        marker=dict(size=12,color=vals,colorscale=scale,cmin=cmin,cmax=cmax,opacity=.92,colorbar=dict(title=unit,thickness=13,len=.64)),
+        customdata=np.stack([d["FacilityName"].astype(str),vals.map(lambda v:"—" if pd.isna(v) else f"{v:.1f} {unit}")],axis=1),
+        hovertemplate="<b>%{customdata[0]}</b><br>%{customdata[1]}<extra></extra>",name="Facilities"
+    ))
+    if selected_code:
+        sel=d[d["REGION_CODE"].astype(str)==str(selected_code)]
+        if not sel.empty:
+            r=sel.iloc[0]
+            fig.add_trace(go.Scattermap(lon=[r.rep_lon],lat=[r.rep_lat],mode="markers+text",text=[r.FacilityName],textposition="top center",
+                                        marker=dict(size=18,color="#111827"),name="Selected facility"))
+    centre,zoom=map_view_from_df(d)
+    fig.update_layout(map=dict(style=BASEMAP_STYLES.get(basemap_name,"carto-voyager"),center=centre,zoom=max(zoom,7.8)),
+                      title=dict(text=title,x=.01,xanchor="left",font=dict(size=15)),height=500,margin=dict(l=0,r=0,t=55,b=25),legend=dict(orientation="h",y=-.04))
+    return fig
+
+
+def facility_two_model_comparison(regions,horizon,period):
+    """Sample ECMWF IFS HRES and NOAA GFS at every facility coordinate."""
+    if regions is None or regions.empty:
+        return pd.DataFrame(), ""
+    records=regions.to_dict("records")
+    ec,ec_status=regional_deterministic(records,"ECMWF IFS HRES")
+    gf,gf_status=regional_deterministic(records,"NOAA GFS")
+    s,e=daily_slice(horizon,period)
+    rows=[]
+    for r in regions.itertuples():
+        code=str(r.REGION_CODE); a=ec.get(code,{}); b=gf.get(code,{})
+        et=a.get("tmax",pd.Series(dtype=float)).iloc[s:e]; gt=b.get("tmax",pd.Series(dtype=float)).iloc[s:e]
+        ep=a.get("precip",pd.Series(dtype=float)); gp=b.get("precip",pd.Series(dtype=float))
+        er=ep.rolling(3,min_periods=3).sum().iloc[max(0,s-2):e]
+        gr=gp.rolling(3,min_periods=3).sum().iloc[max(0,s-2):e]
+        rows.append({
+            **r._asdict(),
+            "ECMWF_Tmax_C":float(et.max()) if len(et.dropna()) else np.nan,
+            "GFS_Tmax_C":float(gt.max()) if len(gt.dropna()) else np.nan,
+            "ECMWF_Rain3_mm":float(er.max()) if len(er.dropna()) else np.nan,
+            "GFS_Rain3_mm":float(gr.max()) if len(gr.dropna()) else np.nan,
+        })
+    out=pd.DataFrame(rows)
+    out["Tmax_ModelMean_C"]=out[["ECMWF_Tmax_C","GFS_Tmax_C"]].mean(axis=1)
+    out["Tmax_ECMWF_minus_GFS_C"]=out["ECMWF_Tmax_C"]-out["GFS_Tmax_C"]
+    out["Rain3_ModelMean_mm"]=out[["ECMWF_Rain3_mm","GFS_Rain3_mm"]].mean(axis=1)
+    out["Rain3_ECMWF_minus_GFS_mm"]=out["ECMWF_Rain3_mm"]-out["GFS_Rain3_mm"]
+    return out, f"ECMWF {ec_status} · NOAA GFS {gf_status}"
 
 def facility_screen_subset(facilities, selected_code=None):
     if facilities is None or facilities.empty:
@@ -1325,6 +1522,116 @@ def focus_hourly(lat,lon,source):
     x,status=cached_json(endpoint,params,10800,100)
     return value_series(x,"hourly","temperature_2m"),value_series(x,"hourly","precipitation"),status
 
+
+
+@st.cache_data(ttl=10800,show_spinner=False)
+def focus_daily_deterministic(lat,lon,source):
+    endpoint=ECMWF_URL if source=="ECMWF IFS HRES" else GFS_URL
+    params={
+        "latitude":round(float(lat),5),"longitude":round(float(lon),5),
+        "daily":"temperature_2m_max,precipitation_sum",
+        "forecast_days":15 if source=="ECMWF IFS HRES" else 16,
+        "timezone":"UTC",
+    }
+    x,status=cached_json(endpoint,params,10800,100)
+    return value_series(x,"daily","temperature_2m_max"),value_series(x,"daily","precipitation_sum"),status
+
+
+def _era5_daily_context(history, dates):
+    """Map future forecast dates to ERA5 1981–2014 day-of-year climatology.
+    This is historical context, not an observed value for the future date.
+    """
+    if history is None or history.empty:
+        return pd.DataFrame(index=pd.DatetimeIndex(dates))
+    h=history.copy().dropna(subset=["date"])
+    h["md"]=h["date"].dt.strftime("%m-%d")
+    g=h.groupby("md").agg(
+        ERA5_Tmax_Clim_C=("tmax","mean"), ERA5_TX90_C=("tmax",lambda x:x.quantile(.90)),
+        ERA5_Precip_Clim_mm=("precip","mean"), ERA5_Precip_P95_mm=("precip",lambda x:x.quantile(.95))
+    )
+    out=[]
+    for d in pd.DatetimeIndex(dates):
+        key=d.strftime("%m-%d")
+        if key in g.index:
+            row=g.loc[key].to_dict()
+        elif key=="02-29" and "02-28" in g.index:
+            row=g.loc["02-28"].to_dict()
+        else:
+            row={c:np.nan for c in g.columns}
+        row["Date"]=d; out.append(row)
+    return pd.DataFrame(out).set_index("Date") if out else pd.DataFrame()
+
+
+def build_point_model_comparison(lat,lon,horizon,period):
+    et,ep,es=focus_daily_deterministic(lat,lon,"ECMWF IFS HRES")
+    gt,gp,gs=focus_daily_deterministic(lat,lon,"NOAA GFS")
+    idx=et.index.union(ep.index).union(gt.index).union(gp.index).sort_values()
+    df=pd.DataFrame(index=idx)
+    df["ECMWF_Tmax_C"]=et.reindex(idx)
+    df["GFS_Tmax_C"]=gt.reindex(idx)
+    df["ECMWF_Precip_mm"]=ep.reindex(idx)
+    df["GFS_Precip_mm"]=gp.reindex(idx)
+    try:
+        hist,_=focus_extreme_history(lat,lon)
+        era=_era5_daily_context(hist,idx)
+        df=df.join(era,how="left")
+    except Exception:
+        for c in ["ERA5_Tmax_Clim_C","ERA5_TX90_C","ERA5_Precip_Clim_mm","ERA5_Precip_P95_mm"]:
+            df[c]=np.nan
+    s,e=daily_slice(horizon,period)
+    view=df.iloc[s:e].copy()
+    view["ECMWF_Tmax_Anomaly_C"]=view["ECMWF_Tmax_C"]-view["ERA5_Tmax_Clim_C"]
+    view["GFS_Tmax_Anomaly_C"]=view["GFS_Tmax_C"]-view["ERA5_Tmax_Clim_C"]
+    view["ECMWF_Precip_Anomaly_mm"]=view["ECMWF_Precip_mm"]-view["ERA5_Precip_Clim_mm"]
+    view["GFS_Precip_Anomaly_mm"]=view["GFS_Precip_mm"]-view["ERA5_Precip_Clim_mm"]
+    return view, f"ECMWF {es} · NOAA GFS {gs}"
+
+
+def point_model_comparison_figure(df,hazard,location_label):
+    if df is None or df.empty:
+        return None
+    is_heat=hazard in ("Heatwave","Compound – Flood + Heatwave")
+    if is_heat:
+        fig=make_subplots(rows=2,cols=2,subplot_titles=(
+            "Forecast Tmax vs ERA5 climatology","Forecast anomaly relative to ERA5 climatology",
+            "ECMWF minus NOAA GFS","Selected-window summary"
+        ),vertical_spacing=.16,horizontal_spacing=.10)
+        fig.add_trace(go.Scatter(x=df.index,y=df["ECMWF_Tmax_C"],mode="lines+markers",name="ECMWF IFS",line=dict(color="#075985",width=3)),1,1)
+        fig.add_trace(go.Scatter(x=df.index,y=df["GFS_Tmax_C"],mode="lines+markers",name="NOAA GFS",line=dict(color="#7C3AED",width=3)),1,1)
+        fig.add_trace(go.Scatter(x=df.index,y=df["ERA5_Tmax_Clim_C"],mode="lines",name="ERA5 climatology",line=dict(color="#475569",dash="dash",width=2)),1,1)
+        fig.add_trace(go.Scatter(x=df.index,y=df["ERA5_TX90_C"],mode="lines",name="ERA5 TX90",line=dict(color="#DC2626",dash="dot",width=2)),1,1)
+        fig.add_trace(go.Bar(x=df.index,y=df["ECMWF_Tmax_Anomaly_C"],name="ECMWF anomaly",marker_color="#0284C7"),1,2)
+        fig.add_trace(go.Bar(x=df.index,y=df["GFS_Tmax_Anomaly_C"],name="GFS anomaly",marker_color="#8B5CF6"),1,2)
+        diff=df["ECMWF_Tmax_C"]-df["GFS_Tmax_C"]
+        fig.add_trace(go.Bar(x=df.index,y=diff,name="ECMWF − GFS",marker_color="#0F766E"),2,1)
+        vals=[df["ECMWF_Tmax_C"].max(),df["GFS_Tmax_C"].max(),df["ERA5_Tmax_Clim_C"].max()]
+        fig.add_trace(go.Bar(x=["ECMWF max","GFS max","ERA5 climatology max"],y=vals,name="Window summary",marker_color=["#075985","#7C3AED","#64748B"]),2,2)
+        fig.update_yaxes(title_text="Tmax (°C)",row=1,col=1)
+        fig.update_yaxes(title_text="Anomaly (°C)",row=1,col=2)
+        fig.update_yaxes(title_text="Difference (°C)",row=2,col=1)
+        fig.update_yaxes(title_text="Tmax (°C)",row=2,col=2)
+    else:
+        fig=make_subplots(rows=2,cols=2,subplot_titles=(
+            "Daily precipitation vs ERA5 climatology","Forecast anomaly relative to ERA5 climatology",
+            "ECMWF minus NOAA GFS","Selected-window precipitation summary"
+        ),vertical_spacing=.16,horizontal_spacing=.10)
+        fig.add_trace(go.Bar(x=df.index,y=df["ECMWF_Precip_mm"],name="ECMWF IFS",marker_color="#075985",opacity=.72),1,1)
+        fig.add_trace(go.Scatter(x=df.index,y=df["GFS_Precip_mm"],mode="lines+markers",name="NOAA GFS",line=dict(color="#7C3AED",width=3)),1,1)
+        fig.add_trace(go.Scatter(x=df.index,y=df["ERA5_Precip_Clim_mm"],mode="lines",name="ERA5 climatology",line=dict(color="#475569",dash="dash",width=2)),1,1)
+        fig.add_trace(go.Scatter(x=df.index,y=df["ERA5_Precip_P95_mm"],mode="lines",name="ERA5 daily P95",line=dict(color="#DC2626",dash="dot",width=2)),1,1)
+        fig.add_trace(go.Bar(x=df.index,y=df["ECMWF_Precip_Anomaly_mm"],name="ECMWF anomaly",marker_color="#0284C7"),1,2)
+        fig.add_trace(go.Bar(x=df.index,y=df["GFS_Precip_Anomaly_mm"],name="GFS anomaly",marker_color="#8B5CF6"),1,2)
+        diff=df["ECMWF_Precip_mm"]-df["GFS_Precip_mm"]
+        fig.add_trace(go.Bar(x=df.index,y=diff,name="ECMWF − GFS",marker_color="#0F766E"),2,1)
+        vals=[df["ECMWF_Precip_mm"].sum(),df["GFS_Precip_mm"].sum(),df["ERA5_Precip_Clim_mm"].sum()]
+        fig.add_trace(go.Bar(x=["ECMWF total","GFS total","ERA5 climatology total"],y=vals,name="Window summary",marker_color=["#075985","#7C3AED","#64748B"]),2,2)
+        fig.update_yaxes(title_text="mm/day",row=1,col=1)
+        fig.update_yaxes(title_text="Anomaly (mm/day)",row=1,col=2)
+        fig.update_yaxes(title_text="Difference (mm/day)",row=2,col=1)
+        fig.update_yaxes(title_text="Total (mm)",row=2,col=2)
+    fig.update_layout(title=dict(text=f"ECMWF · NOAA GFS · ERA5 historical context — {location_label}",x=.01,xanchor="left",font=dict(size=16)),
+                      height=720,barmode="group",margin=dict(l=25,r=10,t=70,b=35),legend=dict(orientation="h",y=-.10),hovermode="x unified")
+    return fig
 
 @st.cache_data(ttl=10800,show_spinner=False)
 def focus_ensemble(lat,lon,system):
@@ -2795,10 +3102,7 @@ if geo_error is None and not regions.empty:
                 facility_registry,facility_status=facilities_for_area(country,focus,str(focus_region_row.REGION_CODE))
             if not facility_registry.empty:
                 facility_registry=facility_registry.sort_values(["FacilityName","FacilityType"]).reset_index(drop=True)
-                label_map={}
-                for r in facility_registry.itertuples():
-                    type_txt=f" · {r.FacilityType}" if str(getattr(r,"FacilityType","")).strip() else ""
-                    label_map[str(r.REGION_CODE)]=f"{r.FacilityName}{type_txt}"
+                label_map=facility_dropdown_labels(facility_registry)
                 options=[FACILITY_OVERVIEW_OPTION]+facility_registry["REGION_CODE"].astype(str).tolist()
                 facility_choice=st.selectbox(
                     "8 · Health facility",options,
@@ -2910,6 +3214,7 @@ if geo_error is None and not regions.empty:
     # Facility-level hazard/exposure screen nested under the selected pilot area
     # -----------------------------------------------------------------------
     facility_forecast_df=pd.DataFrame()
+    facility_model_df=pd.DataFrame()
     selected_facility_value=np.nan
     selected_facility_unit=unit_for(hazard,horizon,mode)
     facility_screen_limited=False
@@ -2967,6 +3272,48 @@ if geo_error is None and not regions.empty:
                 with fright:
                     table_cols=[c for c in ["Rank","FacilityName","FacilityType","ForecastDisplay","SignalClass","Source"] if c in facility_forecast_df]
                     st.dataframe(facility_forecast_df[table_cols].head(35),hide_index=True,use_container_width=True,height=520)
+                if horizon in ("Short range","Medium range") and hazard in ("Heatwave","Flood – rainfall","Compound – Flood + Heatwave"):
+                    try:
+                        with st.spinner("Comparing ECMWF IFS and NOAA GFS across facility locations..."):
+                            facility_model_df,facility_model_status=facility_two_model_comparison(facility_input,horizon,period)
+                        if not facility_model_df.empty:
+                            st.markdown("#### Facility spatial model comparison")
+                            st.caption(
+                                "Each forecast model is sampled at the health-facility coordinates. For temperature, the coloured surface is an inverse-distance interpolation of those facility point forecasts for visual interpretation; it is not the native model grid."
+                            )
+                            if hazard in ("Heatwave","Compound – Flood + Heatwave"):
+                                ecvals=pd.to_numeric(facility_model_df["ECMWF_Tmax_C"],errors="coerce").dropna()
+                                gfvals=pd.to_numeric(facility_model_df["GFS_Tmax_C"],errors="coerce").dropna()
+                                selrow=facility_model_df[facility_model_df["REGION_CODE"].astype(str)==str(facility_choice_code)] if facility_choice_code else pd.DataFrame()
+                                mc1,mc2,mc3,mc4=st.columns(4)
+                                mc1.metric("ECMWF facility range","—" if ecvals.empty else f"{ecvals.min():.1f}–{ecvals.max():.1f} °C")
+                                mc2.metric("NOAA GFS facility range","—" if gfvals.empty else f"{gfvals.min():.1f}–{gfvals.max():.1f} °C")
+                                mc3.metric("Selected · ECMWF","—" if selrow.empty or pd.isna(selrow.iloc[0]["ECMWF_Tmax_C"]) else f"{float(selrow.iloc[0]['ECMWF_Tmax_C']):.1f} °C")
+                                mc4.metric("Selected · NOAA GFS","—" if selrow.empty or pd.isna(selrow.iloc[0]["GFS_Tmax_C"]) else f"{float(selrow.iloc[0]['GFS_Tmax_C']):.1f} °C")
+                            if hazard in ("Heatwave","Compound – Flood + Heatwave"):
+                                sc1,sc2=st.columns(2,gap="large")
+                                with sc1:
+                                    f1=facility_temperature_gradient_figure(facility_model_df,"ECMWF_Tmax_C","ECMWF IFS HRES · facility Tmax spatial gradient",facility_choice_code)
+                                    if f1 is not None: st.plotly_chart(f1,use_container_width=True,config={"displayModeBar":True,"responsive":True})
+                                with sc2:
+                                    f2=facility_temperature_gradient_figure(facility_model_df,"GFS_Tmax_C","NOAA GFS · facility Tmax spatial gradient",facility_choice_code)
+                                    if f2 is not None: st.plotly_chart(f2,use_container_width=True,config={"displayModeBar":True,"responsive":True})
+                                diff_fig=facility_point_spatial_figure(facility_model_df,"Tmax_ECMWF_minus_GFS_C","Model difference at facilities · ECMWF minus NOAA GFS","°C",facility_choice_code,basemap_name,diverging=True)
+                                st.plotly_chart(diff_fig,use_container_width=True,config={"displayModeBar":True,"scrollZoom":True,"responsive":True})
+                            else:
+                                sc1,sc2=st.columns(2,gap="large")
+                                with sc1:
+                                    st.plotly_chart(facility_point_spatial_figure(facility_model_df,"ECMWF_Rain3_mm","ECMWF IFS HRES · maximum 3-day rainfall at facilities","mm",facility_choice_code,basemap_name),use_container_width=True)
+                                with sc2:
+                                    st.plotly_chart(facility_point_spatial_figure(facility_model_df,"GFS_Rain3_mm","NOAA GFS · maximum 3-day rainfall at facilities","mm",facility_choice_code,basemap_name),use_container_width=True)
+                                st.plotly_chart(facility_point_spatial_figure(facility_model_df,"Rain3_ECMWF_minus_GFS_mm","Model difference at facilities · ECMWF minus NOAA GFS","mm",facility_choice_code,basemap_name,diverging=True),use_container_width=True)
+                            comp_cols=[c for c in ["FacilityName","ECMWF_Tmax_C","GFS_Tmax_C","Tmax_ECMWF_minus_GFS_C","ECMWF_Rain3_mm","GFS_Rain3_mm","Rain3_ECMWF_minus_GFS_mm"] if c in facility_model_df]
+                            with st.expander("Facility model-comparison values",expanded=False):
+                                st.dataframe(facility_model_df[comp_cols],hide_index=True,use_container_width=True)
+                            st.caption(f"Model data status: {facility_model_status}")
+                    except Exception as exc:
+                        st.info(f"Two-model facility spatial comparison is temporarily unavailable: {exc}")
+
                 st.download_button(
                     "Download facility forecast/exposure CSV",
                     facility_forecast_df.to_csv(index=False).encode("utf-8"),
@@ -2994,7 +3341,7 @@ if geo_error is None and not regions.empty:
         analysis_label=str(selected_facility.FacilityName)
         analysis_level="Health facility"
         analysis_facility_id=str(selected_facility.FacilityID)
-        analysis_facility_type=str(selected_facility.FacilityType)
+        analysis_facility_type=_meaningful_facility_type(selected_facility.FacilityType) or "Health facility"
         analysis_registry_source=str(selected_facility.Source)
         st.markdown(
             f'<div class="facility-focus"><b>Facility forecast focus:</b> {analysis_label} · {analysis_facility_type} · '
@@ -3021,6 +3368,33 @@ if geo_error is None and not regions.empty:
     with tabs[0]:
         st.markdown(f"### Forecast time series · {analysis_label}")
         if horizon in ("Short range","Medium range") and hazard!="Flood – river discharge (GloFAS)":
+            try:
+                point_compare_df,point_compare_status=build_point_model_comparison(meta.rep_lat,meta.rep_lon,horizon,period)
+                if not point_compare_df.empty:
+                    st.markdown("#### Deterministic model comparison and ERA5 historical context")
+                    st.caption(
+                        "ECMWF IFS HRES and NOAA GFS are current forecasts at the selected district/municipality or facility coordinate. "
+                        "ERA5 is shown as 1981–2014 historical climatology/threshold context for the same calendar days; it is not a future observation. "
+                        "For past-event skill, use Forecast verification."
+                    )
+                    cmp_fig=point_model_comparison_figure(point_compare_df,hazard,analysis_label)
+                    if cmp_fig is not None:
+                        st.plotly_chart(cmp_fig,use_container_width=True,config={"displayModeBar":True,"responsive":True})
+                    show_cols=[c for c in ["ECMWF_Tmax_C","GFS_Tmax_C","ERA5_Tmax_Clim_C","ERA5_TX90_C","ECMWF_Tmax_Anomaly_C","GFS_Tmax_Anomaly_C",
+                                                    "ECMWF_Precip_mm","GFS_Precip_mm","ERA5_Precip_Clim_mm","ERA5_Precip_P95_mm","ECMWF_Precip_Anomaly_mm","GFS_Precip_Anomaly_mm"] if c in point_compare_df]
+                    with st.expander("Daily model-comparison values",expanded=False):
+                        table=point_compare_df[show_cols].copy(); table.index.name="Date"
+                        st.dataframe(table.reset_index(),hide_index=True,use_container_width=True)
+                    export_cmp=point_compare_df.reset_index().rename(columns={"index":"Date"})
+                    export_cmp["Country"]=country
+                    export_cmp["Area"]=analysis_label
+                    export_cmp["ParentArea"]=focus
+                    export_cmp["AnalysisLevel"]=analysis_level
+                    export_cmp["ForecastSystem"]="ECMWF IFS HRES + NOAA GFS + ERA5 climatology"
+                    focus_timeseries_exports.append(export_cmp)
+                    st.caption(f"Current model data status: {point_compare_status}")
+            except Exception as exc:
+                st.info(f"Deterministic ECMWF/GFS/ERA5 comparison is temporarily unavailable: {exc}")
             try:
                 tx90,p95,_=focus_baseline(meta.rep_lat,meta.rep_lon)
                 s,e=daily_slice(horizon,period)
@@ -4208,6 +4582,8 @@ Historical analogue relationships are supporting context and should not be treat
             package_files["stella_sdm_handoff.csv"]=sdm_df.to_csv(index=False).encode("utf-8")
         if isinstance(facility_forecast_df,pd.DataFrame) and not facility_forecast_df.empty:
             package_files["facility_forecast_exposure.csv"]=facility_forecast_df.to_csv(index=False).encode("utf-8")
+        if isinstance(facility_model_df,pd.DataFrame) and not facility_model_df.empty:
+            package_files["facility_ecmwf_gfs_comparison.csv"]=facility_model_df.to_csv(index=False).encode("utf-8")
         if isinstance(facility_registry,pd.DataFrame) and not facility_registry.empty:
             package_files["facility_registry.csv"]=facility_registry.to_csv(index=False).encode("utf-8")
 

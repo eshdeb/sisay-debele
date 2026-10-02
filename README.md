@@ -1,7 +1,7 @@
 # REACH Climate–Health Early Warning Data Portal
 
 **Final GitHub / Streamlit release — 2 October 2026**  
-**Facility drill-down + high-contrast interface**
+**V6 · Facility spatial gradients + ECMWF/GFS/ERA5 comparison + high-contrast interface**
 
 This repository contains the full REACH climate–health research decision-support dashboard.
 
@@ -69,6 +69,41 @@ The seven main analysis tabs are now filled controls with bold white text so all
 - Forecast verification · REACH pilots
 
 The tab strip wraps on narrower screens. The active tab has a distinct teal/navy style and focus border. Forecast-setup selectors, radio controls, download buttons and source buttons also use filled high-contrast styles.
+
+
+## V6 visual and model-comparison revision
+
+This release adds the visual analysis requested for district/municipality and facility forecasts without removing the existing numerical cards, maps, ensemble uncertainty, hydrology, climate drivers, SDM outputs or verification workflows.
+
+### Facility spatial temperature gradients
+
+For short- and medium-range heat forecasts, the dashboard now:
+
+- samples **ECMWF IFS HRES** and **NOAA GFS** at each mapped health-facility coordinate
+- displays the two models side by side
+- creates a blue → cyan → yellow → orange → red **Tmax spatial gradient** with each facility plotted as a point
+- highlights the selected facility
+- shows an ECMWF-minus-GFS spatial difference map
+- exposes the underlying point values in a table and downloadable CSV
+
+The coloured gradient is an **inverse-distance interpolation of forecast values sampled at facility points**. It is a visualisation layer and is not presented as the native model grid.
+
+For rainfall-driven flood forecasts, the same section shows side-by-side facility point maps for ECMWF and GFS maximum 3-day rainfall and a model-difference map.
+
+### District / municipality / facility model comparison
+
+For short- and medium-range forecasts, the Time series & uncertainty tab now includes a 2×2 comparison panel for the currently selected district, municipality or facility:
+
+1. ECMWF IFS HRES and NOAA GFS forecast values with **ERA5 historical climatology/threshold context**
+2. ECMWF and GFS anomalies relative to the ERA5 day-of-year climatology
+3. ECMWF-minus-GFS model difference through the valid window
+4. selected-window summary bars
+
+ERA5 is historical reference context (1981–2014) for a future forecast. It is **not** labelled as a future observed value. For retrospective forecast skill against actual ERA5, use the dedicated **Forecast verification · REACH pilots** tab.
+
+### Facility names
+
+The Brazil selector now prioritises the actual **CNES establishment name**. Unexplained numeric labels such as “CNES type 39” are no longer appended to the dropdown. A facility identifier is only appended where duplicate facility names would otherwise be ambiguous.
 
 ## Verification indicators
 

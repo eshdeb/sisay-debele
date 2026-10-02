@@ -45,3 +45,15 @@ Check at minimum:
 - facility selection updates point-specific time series/diagnostics
 - Downloads include facility forecast/registry when a pilot registry is loaded
 - Forecast verification remains clearly identified as parent pilot-area verification
+
+
+## V6 checks
+
+After deployment, also confirm:
+- the top analysis tabs render as filled coloured buttons with bold white text, including the active tab
+- Forecast setup selectboxes render as filled teal/navy controls rather than pale grey fields
+- Brazil facility dropdowns show facility names without unexplained numeric CNES type suffixes
+- Heatwave short/medium range shows side-by-side ECMWF and NOAA GFS facility temperature-gradient plots plus a model-difference map
+- the selected district/municipality or facility shows the 2×2 ECMWF/GFS/ERA5 historical-context comparison in Time series & uncertainty
+- ERA5 is labelled as historical climatology/threshold context for future forecasts, while actual retrospective verification remains in Forecast verification
+- the selected-data ZIP includes `facility_ecmwf_gfs_comparison.csv` when facility model comparison is available
