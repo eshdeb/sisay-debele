@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 _APP_NOTES = """
-REACH Climate–Health Early Warning Data Portal · FINAL V9 · TRANSPARENT FACILITY SURFACES + OPAQUE SCIENTIFIC LABELS
+REACH Climate–Health Early Warning Data Portal · FINAL V13 · DECISION-CENTRED LANDING + CASCADING UX
 
 V5.0 restores/preserves the V4.4 + V4.5 functionality and adds:
 - Zambia + Brazil country selector.
@@ -28,7 +28,7 @@ V5.0 restores/preserves the V4.4 + V4.5 functionality and adds:
 - Labelled facility contour surfaces for temperature and rainfall where spatial variation exists.
 - Facility comparison bar charts, parent-area/facility summary statistics and clearer district/facility interpretation.
 - Expanded documentation for national geography and REACH pilot facility coverage.
-- V9 separates visual transparency from scientific content: gradient fills are lighter, while contour numbers, facility names, markers, titles and values remain dark/opaque.
+- V13 adds a decision-centred landing page, a clear forecast-to-action journey, stronger visual hierarchy, compact source architecture, cascading selection context, and GitHub architecture/design documentation while preserving all V12 forecast, facility, verification and export functionality.
 
 Scientific boundary:
 Compound scores are screening indices unless explicitly described as a forecast
@@ -238,6 +238,37 @@ div.stDownloadButton > button:hover{filter:brightness(1.07)}
 
 .facility-focus{background:linear-gradient(110deg,#ECFDF5,#EFF6FF);border:1px solid #86EFAC;border-left:6px solid #0F766E;border-radius:14px;padding:12px 15px;margin:9px 0}
 .facility-focus b{color:#064E3B}
+
+/* V13 · decision-centred landing page and calmer scientific design system. */
+:root{
+  --reach-ink:#102A36; --reach-muted:#58707B; --reach-line:#D8E2E6;
+  --reach-canvas:#F7FAFB; --reach-card:#FFFFFF; --reach-navy:#123B4A;
+  --reach-teal:#2F6F73; --reach-teal-2:#6F9696; --reach-gold:#C99B3D;
+  --reach-green:#4E7B68; --reach-clay:#A86F5B;
+}
+[data-testid="stAppViewContainer"]{background:linear-gradient(180deg,#F9FBFC 0%,#FFFFFF 38%,#FFFFFF 100%)}
+.main .block-container{max-width:1680px !important;padding-top:.65rem !important}
+.hero-v13{background:linear-gradient(120deg,#102F3B 0%,#164D5C 48%,#2E6E6D 100%);border-radius:22px;padding:1.35rem 1.55rem 1.25rem;color:#fff;box-shadow:0 14px 34px rgba(16,42,54,.15);position:relative;overflow:hidden;margin-bottom:.8rem}
+.hero-v13:after{content:"";position:absolute;right:-90px;top:-115px;width:310px;height:310px;border-radius:50%;border:46px solid rgba(255,255,255,.055)}
+.hero-v13 .eyebrow{font-size:.77rem;font-weight:850;letter-spacing:.13em;text-transform:uppercase;color:#D5ECE8;margin-bottom:.48rem}
+.hero-v13 h1{font-size:2.22rem;line-height:1.08;margin:0 0 .46rem;color:#fff;letter-spacing:-.018em}
+.hero-v13 .sub{max-width:980px;color:#E9F3F4;font-size:1.02rem;line-height:1.52;margin:0}
+.hero-v13 .trust{display:inline-flex;gap:.45rem;align-items:center;margin-top:.78rem;padding:.34rem .62rem;border-radius:999px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);font-size:.80rem;color:#F5FAFA;font-weight:720}
+.journey-wrap{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.65rem;margin:.35rem 0 1rem}
+.journey-step{background:#fff;border:1px solid var(--reach-line);border-radius:14px;padding:.78rem .88rem;box-shadow:0 3px 10px rgba(16,42,54,.045)}
+.journey-step .n{display:inline-flex;width:26px;height:26px;align-items:center;justify-content:center;border-radius:8px;background:#E5F0EF;color:#255C61;font-weight:900;font-size:.78rem;margin-right:.4rem}
+.journey-step b{color:var(--reach-ink);font-size:.91rem}.journey-step span{display:block;color:var(--reach-muted);font-size:.78rem;line-height:1.35;margin-top:.32rem}
+.landing-card{background:#FFFFFF;border:1px solid var(--reach-line);border-radius:16px;padding:1rem 1.05rem;box-shadow:0 4px 14px rgba(16,42,54,.05)}
+.landing-kicker{font-size:.76rem;letter-spacing:.08em;text-transform:uppercase;color:#66808A;font-weight:850;margin-bottom:.18rem}
+.landing-title{font-size:1.08rem;font-weight:850;color:var(--reach-ink);margin-bottom:.2rem}
+.landing-copy{color:var(--reach-muted);font-size:.86rem;line-height:1.45}
+.source-compact{background:#fff;border:1px solid #D9E3E7;border-radius:12px;padding:.68rem .72rem;min-height:72px}
+.source-compact .source-title{font-size:.88rem}.source-compact .source-note{font-size:.75rem;line-height:1.28}
+.selection-context{background:#F4F8F8;border:1px solid #CDDCDD;border-left:5px solid #4E7B68;border-radius:12px;padding:.68rem .82rem;margin:.35rem 0 .72rem;color:#29464F;font-size:.86rem;font-weight:690}
+.selection-context b{color:#17343D}
+.section{letter-spacing:-.006em}
+@media(max-width:900px){.journey-wrap{grid-template-columns:1fr 1fr}.hero-v13 h1{font-size:1.72rem}}
+@media(max-width:600px){.journey-wrap{grid-template-columns:1fr}.hero-v13{padding:1.05rem}.hero-v13 h1{font-size:1.48rem}}
 .facility-note{background:#F8FAFC;border:1px solid #CBD5E1;border-radius:12px;padding:10px 12px;color:#334155}
 </style>
 """, unsafe_allow_html=True)
@@ -3219,15 +3250,22 @@ Briefing:
 # UI: Country / geography first
 # ---------------------------------------------------------------------------
 st.markdown("""
-<div class="hero">
-<div class="brandline"><span class="brandmark">REACH</span><span class="brandtag">CLIMATE × HEALTH · EARLY WARNING</span></div>
-<h1>Climate–Health Early Warning Data Portal</h1>
-<p>Zambia + Brazil · maternal & child health-system preparedness · physical and probabilistic maps · compound hazards · river-flow forecasting</p>
+<div class="hero-v13">
+  <div class="eyebrow">REACH · Climate × Health · Early Warning</div>
+  <h1>From forecast signal to health-system action</h1>
+  <p class="sub">A decision-support portal for Zambia and Brazil that connects multi-horizon climate and hydrological forecasts with district/municipality screening, health-facility exposure, model verification and practical preparedness actions.</p>
+  <div class="trust">Research decision support · linked forecast sources · official national warnings remain authoritative</div>
+</div>
+<div class="journey-wrap">
+  <div class="journey-step"><b><span class="n">1</span>Monitor</b><span>See the current hazard signal and source status.</span></div>
+  <div class="journey-step"><b><span class="n">2</span>Locate</b><span>Move from country → district/municipality → facility.</span></div>
+  <div class="journey-step"><b><span class="n">3</span>Compare</b><span>Compare ECMWF, NOAA, ERA5 context and uncertainty.</span></div>
+  <div class="journey-step"><b><span class="n">4</span>Act</b><span>Translate the signal into preparedness and response choices.</span></div>
 </div>
 """,unsafe_allow_html=True)
-st.caption("RESEARCH DECISION-SUPPORT PORTAL · Forecasts update from linked sources. Official national warnings remain authoritative.")
 
-topc1,topc2,topc3=st.columns([1,1,2.2])
+st.markdown('<div class="landing-kicker">Start here</div><div class="landing-title">Choose geography, then let the dashboard cascade the same selection through maps, facilities, verification and briefing.</div>',unsafe_allow_html=True)
+topc1,topc2,topc3=st.columns([1,1,2.4])
 with topc1:
     country=st.selectbox("Country",["Zambia","Brazil"])
 with topc2:
@@ -3270,29 +3308,29 @@ else:
         atlantic_info={"tna":tna,"tsa":tsa,"gradient":tna-tsa,"date":tna_date}
     except Exception: pass
 
-st.markdown('<div class="section">Live data & climate-driver portal</div>',unsafe_allow_html=True)
+st.markdown('<div class="section">Forecast sources & climate context</div>',unsafe_allow_html=True)
 cards=st.columns(6)
 with cards[0]:
-    st.markdown('<div class="source-card"><span class="source-title">ECMWF</span><br><span class="source-note">IFS · ENS · EC46 · SEAS5</span></div>',unsafe_allow_html=True)
+    st.markdown('<div class="source-compact"><span class="source-title">ECMWF</span><br><span class="source-note">IFS · ENS · EC46 · SEAS5</span></div>',unsafe_allow_html=True)
     st.link_button("Source", "https://open-meteo.com/en/docs/ecmwf-api", use_container_width=True)
 with cards[1]:
-    st.markdown('<div class="source-card"><span class="source-title">NOAA</span><br><span class="source-note">GFS · GEFS · NMME</span></div>',unsafe_allow_html=True)
+    st.markdown('<div class="source-compact"><span class="source-title">NOAA</span><br><span class="source-note">GFS · GEFS · NMME</span></div>',unsafe_allow_html=True)
     st.link_button("Source", NMME_URL, use_container_width=True)
 with cards[2]:
-    st.markdown('<div class="source-card"><span class="source-title">GloFAS</span><br><span class="source-note">River discharge / flood guidance</span></div>',unsafe_allow_html=True)
+    st.markdown('<div class="source-compact"><span class="source-title">GloFAS</span><br><span class="source-note">River discharge / flood guidance</span></div>',unsafe_allow_html=True)
     st.link_button("Source", "https://open-meteo.com/en/docs/flood-api", use_container_width=True)
 with cards[3]:
     etxt="Unavailable" if not enso_info else f"{enso_info['phase']} · {enso_info['prob']:.0f}%"
-    st.markdown(f'<div class="source-card"><span class="source-title">ENSO / RONI</span><br><span class="source-note">{etxt}</span></div>',unsafe_allow_html=True)
+    st.markdown(f'<div class="source-compact"><span class="source-title">ENSO / RONI</span><br><span class="source-note">{etxt}</span></div>',unsafe_allow_html=True)
     st.link_button("NOAA CPC", CPC_ENSO_URL, use_container_width=True)
 with cards[4]:
     if country=="Zambia":
         txt="Unavailable" if not dmi_info else f"{dmi_info['value']:+.2f} °C · {dmi_info['phase']}"
-        st.markdown(f'<div class="source-card"><span class="source-title">IOD / DMI</span><br><span class="source-note">{txt}</span></div>',unsafe_allow_html=True)
+        st.markdown(f'<div class="source-compact"><span class="source-title">IOD / DMI</span><br><span class="source-note">{txt}</span></div>',unsafe_allow_html=True)
         st.link_button("NOAA PSL", DMI_WEB, use_container_width=True)
     else:
         txt="Unavailable" if not atlantic_info else f"TNA−TSA {atlantic_info['gradient']:+.2f} °C"
-        st.markdown(f'<div class="source-card"><span class="source-title">Tropical Atlantic</span><br><span class="source-note">{txt}</span></div>',unsafe_allow_html=True)
+        st.markdown(f'<div class="source-compact"><span class="source-title">Tropical Atlantic</span><br><span class="source-note">{txt}</span></div>',unsafe_allow_html=True)
         st.link_button("NOAA PSL", "https://psl.noaa.gov/data/timeseries/month/", use_container_width=True)
 with cards[5]:
     if country=="Zambia":
@@ -3358,6 +3396,12 @@ if geo_error is None and not regions.empty:
         else:
             st.caption("Facility drill-down is currently enabled for the four REACH pilot areas: Senanga, Sinazongwe, Recife and Palmares.")
 
+        _state_context = f" · {state_name}" if country=="Brazil" else ""
+        _facility_context = (selected_facility.FacilityName if selected_facility is not None else "Area overview")
+        st.markdown(
+            f'<div class="selection-context"><b>Current view:</b> {country}{_state_context} → {horizon} → {hazard} → {period} → {focus} → {_facility_context}</div>',
+            unsafe_allow_html=True,
+        )
         st.markdown("#### Map display")
         basemap_name=st.selectbox(
             "Background map",list(BASEMAP_STYLES),
@@ -4338,6 +4382,17 @@ if geo_error is None and not regions.empty:
         st.markdown("## Documentation, return periods and system-dynamics integration")
         st.caption(
             "This section explains national spatial coverage, the nested district/municipality → facility workflow, data provenance, interpretation, return periods and how forecast information is transferred into the REACH System Dynamics Model (Stella)."
+        )
+        st.markdown(
+            """
+### Portal architecture · one connected decision journey
+
+**Monitor → Locate → Compare → Act → Verify**
+
+The dashboard is intentionally organised as a cascade rather than a set of independent charts. A selection made at the geography or forecast level is carried into the spatial map, facility drill-down, model comparison, hydrology/climate context, decision briefing, downloads and verification wherever the underlying data support that view. Facility results remain nested under the selected district/municipality.
+
+The backend follows a source-adapter → cache/retry → harmonisation → forecast analytics → decision/output pattern. This keeps source provenance explicit and allows fail-soft use of cached data when an upstream forecast service is temporarily unavailable.
+"""
         )
 
         st.markdown("### 1 · Geographic and health-facility coverage")
@@ -5472,7 +5527,7 @@ Continuous indicators test numerical forecast accuracy; percentile-event indicat
 st.markdown(
     """
 <div class="footerbrand">
-<b>REACH · Climate–Health Early Warning Data Portal</b><br>
+<b>REACH · Climate–Health Early Warning Data Portal</b><br><span style="color:#647B84">Monitor → Locate → Compare → Act</span><br>
 Decision-support portal for anticipatory maternal and child health-system preparedness in Zambia and Brazil.
 Forecast information remains separate from realised hazard severity; official national warning services remain authoritative.
 </div>

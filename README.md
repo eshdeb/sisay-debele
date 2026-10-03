@@ -1,5 +1,10 @@
 # REACH Climate–Health Early Warning Data Portal
 
+## V13 design and architecture update
+
+This release preserves the existing forecast, facility, hydrology, verification and export functionality while improving the landing page and application architecture around one decision journey: **Monitor → Locate → Compare → Act**. The same country/horizon/hazard/period/area/facility context cascades across downstream views. See `ARCHITECTURE.md` and `DESIGN_SYSTEM.md`.
+
+
 ## V11 hotfix - 03 Oct 2026
 
 - Fixed a Plotly compatibility error caused by the obsolete `colorbar.titlefont` property.

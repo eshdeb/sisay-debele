@@ -1,2 +1,1 @@
-V12 - 03 Oct 2026
-Restore fully opaque labelled facility contour gradients for every forecast horizon; keep facility names and contour values; fix Plotly 6.x axis-title compatibility; retain all existing content and add restrained publication-style colours.
+V13 · Decision-centred landing, cascading UX and documented backend architecture · 03 Oct 2026
