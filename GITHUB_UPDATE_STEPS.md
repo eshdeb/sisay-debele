@@ -65,3 +65,7 @@ After deployment, also confirm:
 
 
 V9 visual check: verify the gradient surface is lighter/transparent while contour numbers and facility names remain dark and fully readable; then test one Sub-seasonal and one Seasonal pilot view.
+
+
+### V12 facility-gradient consistency
+V12 keeps all existing portal content and restores a fully visible facility contour/gradient for the active temperature or precipitation forecast across short-range, medium-range, sub-seasonal and seasonal horizons. Facility names and dark contour-value labels are drawn directly on the surface. The surface is a visual IDW interpolation of forecast values sampled at facility coordinates and must not be interpreted as the native forecast-model grid. V12 also updates Plotly axis-title syntax for current Plotly 6.x compatibility and uses a restrained publication-style palette without fading the scientific gradient surface.

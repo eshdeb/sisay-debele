@@ -52,9 +52,12 @@ if "io.BytesIO()" in source:
     raise SystemExit("Old io.BytesIO() reference remains in app.")
 print("[PASS] Download ZIP buffer uses BytesIO() consistently.")
 
-if 'tickfont=dict(color="#1F2937",size=11),titlefont' in source:
-    raise SystemExit("Obsolete Plotly contour colorbar titlefont property remains in app.")
-print("[PASS] Plotly contour colorbar uses current title/font syntax.")
+if "titlefont=" in source:
+    raise SystemExit("Obsolete Plotly titlefont property remains in app; use title_font or title.font syntax.")
+print("[PASS] Plotly contour/colorbar/axis title fonts use current syntax.")
+if "Facility forecast gradient · selected forecast" not in source:
+    raise SystemExit("Cross-horizon facility gradient block is missing.")
+print("[PASS] Facility gradient is wired for the active forecast across all horizons.")
 
 z_geo = json.loads((ROOT / "zambia_116_districts.geojson").read_text(encoding="utf-8"))
 b_geo = json.loads((ROOT / "brazil_5572_municipalities_simplified.geojson").read_text(encoding="utf-8"))

@@ -857,17 +857,17 @@ def facility_contour_gradient_figure(df, value_col, title, unit, selected_code=N
     if colorscale is not None:
         scale=colorscale
     elif diverging and unit=="°C":
-        scale=[[0.00,"#2C6C9E"],[0.18,"#6CA6C1"],[0.36,"#B9D8E2"],[0.50,"#F5F3EA"],
-               [0.64,"#F1C0A7"],[0.82,"#D9785C"],[1.00,"#A33F36"]]
+        scale=[[0.00,"#3F6F9F"],[0.20,"#78A9C2"],[0.40,"#C1D9DF"],[0.50,"#F7F5EF"],
+               [0.60,"#E7C7AF"],[0.80,"#D18A69"],[1.00,"#B65C4A"]]
     elif diverging:
-        scale=[[0.00,"#A85C3A"],[0.18,"#D49A77"],[0.36,"#EAD5C7"],[0.50,"#F5F3EA"],
-               [0.64,"#C7DDE5"],[0.82,"#77ABC0"],[1.00,"#2F718E"]]
+        scale=[[0.00,"#B65C4A"],[0.20,"#D29173"],[0.40,"#E8D2C4"],[0.50,"#F7F5EF"],
+               [0.60,"#C9DDE2"],[0.80,"#7AA9BC"],[1.00,"#3F6F9F"]]
     elif unit=="°C":
-        scale=[[0.00,"#2C6C9E"],[0.18,"#63A4C2"],[0.36,"#A6D0D8"],[0.54,"#E4E6C8"],
-               [0.72,"#F3C56F"],[0.88,"#E57A4E"],[1.00,"#B43B39"]]
+        scale=[[0.00,"#355F8D"],[0.18,"#4A86A8"],[0.36,"#78B7B2"],[0.54,"#C7D6A5"],
+               [0.72,"#E4C46A"],[0.88,"#D98B5F"],[1.00,"#B55B5A"]]
     else:
-        scale=[[0.00,"#EAF4F8"],[0.20,"#C8E0EA"],[0.42,"#8FC2D3"],[0.64,"#549AB5"],
-               [0.82,"#2E718F"],[1.00,"#154C67"]]
+        scale=[[0.00,"#F3F6F4"],[0.20,"#D9E8E0"],[0.42,"#A8CCBE"],[0.64,"#74AD9E"],
+               [0.82,"#4C8D82"],[1.00,"#214E55"]]
 
     decimals=1 if unit in ("°C","mm","%") else 0
     fig=go.Figure()
@@ -925,8 +925,8 @@ def facility_contour_gradient_figure(df, value_col, title, unit, selected_code=N
         legend=dict(orientation="h",y=-.15,font=dict(size=10,color="#1F2937")),
         plot_bgcolor="#FBFCFD",paper_bgcolor="white",font=dict(color="#1F2937",family="Arial")
     )
-    fig.update_xaxes(gridcolor="rgba(148,163,184,.16)",zeroline=False,tickfont=dict(color="#374151"),titlefont=dict(color="#374151"))
-    fig.update_yaxes(scaleanchor="x",scaleratio=1,gridcolor="rgba(148,163,184,.16)",zeroline=False,tickfont=dict(color="#374151"),titlefont=dict(color="#374151"))
+    fig.update_xaxes(gridcolor="rgba(148,163,184,.16)",zeroline=False,tickfont=dict(color="#374151"),title_font=dict(color="#374151"))
+    fig.update_yaxes(scaleanchor="x",scaleratio=1,gridcolor="rgba(148,163,184,.16)",zeroline=False,tickfont=dict(color="#374151"),title_font=dict(color="#374151"))
     return fig
 
 def facility_temperature_gradient_figure(df, value_col, title, selected_code=None, diverging=False):
@@ -3542,6 +3542,41 @@ if geo_error is None and not regions.empty:
                 )
                 if facility_bar is not None:
                     st.plotly_chart(facility_bar,use_container_width=True,config={"displayModeBar":True,"responsive":True})
+
+                # A consistent facility contour/gradient is shown for every forecast horizon.
+                # This uses the currently selected forecast signal sampled at facility coordinates,
+                # without replacing any of the existing model-comparison or long-range content below.
+                if selected_facility_unit in ("°C","mm") and hazard in (
+                    "Heatwave","Flood – rainfall","Drought / dry anomaly",
+                    "Compound – Flood + Heatwave","Compound – Drought + Heatwave","Compound – Drought → Flood"
+                ):
+                    try:
+                        st.markdown("#### Facility forecast gradient · selected forecast")
+                        st.caption(
+                            "The coloured field is a fully visible inverse-distance interpolation of the current facility-point forecast values. "
+                            "Dark labelled contours show the forecast value and each mapped point is labelled with the facility name. "
+                            "This is a visual interpolation of values sampled at facility coordinates, not the native forecast-model grid."
+                        )
+                        _is_diverging = (horizon in ("Sub-seasonal","Seasonal") or "anomaly" in str(mode).lower() or hazard=="Drought / dry anomaly")
+                        _grad_title = f"{focus} · facility {hazard.lower()} gradient · {period_display_label(horizon,period)}"
+                        if selected_facility_unit=="°C":
+                            _generic_grad=facility_temperature_gradient_figure(
+                                facility_forecast_df,"value",_grad_title,facility_choice_code,diverging=_is_diverging
+                            )
+                        else:
+                            _generic_grad=facility_precipitation_gradient_figure(
+                                facility_forecast_df,"value",_grad_title,facility_choice_code,diverging=_is_diverging
+                            )
+                        if _generic_grad is not None:
+                            st.plotly_chart(_generic_grad,use_container_width=True,config={"displayModeBar":True,"responsive":True})
+                        else:
+                            st.caption(
+                                "A contour gradient is not drawn because the current facility values do not contain enough spatial variation for a defensible surface. "
+                                "The direct facility values remain available in the map, table and bar chart above."
+                            )
+                    except Exception as exc:
+                        print(f"Facility selected-signal gradient error: {type(exc).__name__}: {exc}")
+                        st.warning("The facility gradient could not be rendered for this selection; the direct facility values remain available above.")
 
                 # Consistent facility gradients for extended-range and seasonal forecasts.
                 if horizon in ("Sub-seasonal","Seasonal"):
