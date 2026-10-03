@@ -832,9 +832,8 @@ def _idw_grid(df, value_col, grid_size=70, power=2.0):
 def facility_contour_gradient_figure(df, value_col, title, unit, selected_code=None, colorscale=None, diverging=False):
     """Labelled IDW contour surface from facility point forecasts.
 
-    V9 intentionally separates *surface transparency* from *scientific content*.
-    The colour field is semi-transparent so the figure feels lighter, but contour
-    values, facility names, point markers, the selected-facility star and axes stay
+    V11 keeps the gradient surface fully visible while preserving strong scientific labels.
+    Contour values, facility names, point markers, the selected-facility star and axes stay
     fully opaque and dark. The surface is a visual interpolation of values sampled
     at facility coordinates; it is not the native NWP grid. When all point values
     are effectively identical, no artificial gradient is drawn.
@@ -853,8 +852,8 @@ def facility_contour_gradient_figure(df, value_col, title, unit, selected_code=N
     n_levels=7
     contour_step=span/n_levels
 
-    # Keep scientifically intuitive colours, but let the *surface* carry the
-    # transparency rather than fading labels/text. This preserves readability.
+    # Keep scientifically intuitive, muted colours. The gradient surface is fully
+    # opaque so the spatial pattern remains easy to see; labels are rendered on top.
     if colorscale is not None:
         scale=colorscale
     elif diverging and unit=="°C":
@@ -873,19 +872,19 @@ def facility_contour_gradient_figure(df, value_col, title, unit, selected_code=N
     decimals=1 if unit in ("°C","mm","%") else 0
     fig=go.Figure()
 
-    # 1) Light, semi-transparent colour field only.
+    # 1) Fully visible colour field. Do not fade the scientific gradient surface.
     fig.add_trace(go.Contour(
         x=gx,y=gy,z=zz,colorscale=scale,zmin=zmin,zmax=zmax,
         contours=dict(start=zmin,end=zmax,size=contour_step,coloring="heatmap",showlines=False,showlabels=False),
-        line=dict(width=0),opacity=.46,
-        colorbar=dict(title=unit,thickness=13,len=.70,tickformat=f".{decimals}f",outlinewidth=0,
-                      tickfont=dict(color="#1F2937",size=11),titlefont=dict(color="#111827",size=12)),
+        line=dict(width=0),opacity=1.0,
+        colorbar=dict(title=dict(text=unit,font=dict(color="#111827",size=12)),
+                      thickness=13,len=.70,tickformat=f".{decimals}f",outlinewidth=0,
+                      tickfont=dict(color="#1F2937",size=11)),
         hovertemplate=f"Longitude %{{x:.3f}}<br>Latitude %{{y:.3f}}<br>Interpolated value %{{z:.{decimals}f}} {unit}<extra></extra>",
         name="Interpolated facility-point forecast"
     ))
 
-    # 2) Fully opaque dark contour lines + numeric labels. This is deliberately
-    # separate from the translucent fill so values never fade with the surface.
+    # 2) Fully opaque dark contour lines + numeric labels, drawn above the surface.
     fig.add_trace(go.Contour(
         x=gx,y=gy,z=zz,zmin=zmin,zmax=zmax,showscale=False,
         contours=dict(start=zmin,end=zmax,size=contour_step,coloring="lines",showlines=True,showlabels=True,
@@ -3662,7 +3661,8 @@ if geo_error is None and not regions.empty:
                                 st.dataframe(facility_model_df[comp_cols],hide_index=True,use_container_width=True)
                             st.caption(f"Model data status: {facility_model_status}")
                     except Exception as exc:
-                        st.info(f"Two-model facility spatial comparison is temporarily unavailable: {exc}")
+                        print(f"Facility spatial comparison error: {type(exc).__name__}: {exc}")
+                        st.warning("The facility spatial comparison could not be rendered for this view. Please refresh the online data or try another forecast selection.")
 
                 st.download_button(
                     "Download facility forecast/exposure CSV",

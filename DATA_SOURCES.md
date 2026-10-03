@@ -75,3 +75,7 @@ The long-range contour surfaces use a centred diverging scale because anomalies 
 
 
 Interface note: V10 changes only presentation/accessibility of controls and navigation; scientific data sources and interpretation boundaries are unchanged from V9.
+
+
+## V11 display note
+The facility contour surfaces are visual IDW interpolations of point-sampled forecast values, not native NWP grids. The surface is shown fully visible; dark contour labels and facility names are overlaid for interpretation.

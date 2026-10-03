@@ -52,6 +52,10 @@ if "io.BytesIO()" in source:
     raise SystemExit("Old io.BytesIO() reference remains in app.")
 print("[PASS] Download ZIP buffer uses BytesIO() consistently.")
 
+if 'tickfont=dict(color="#1F2937",size=11),titlefont' in source:
+    raise SystemExit("Obsolete Plotly contour colorbar titlefont property remains in app.")
+print("[PASS] Plotly contour colorbar uses current title/font syntax.")
+
 z_geo = json.loads((ROOT / "zambia_116_districts.geojson").read_text(encoding="utf-8"))
 b_geo = json.loads((ROOT / "brazil_5572_municipalities_simplified.geojson").read_text(encoding="utf-8"))
 z_pts = pd.read_csv(ROOT / "zambia_116_district_forecast_points.csv")

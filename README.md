@@ -1,5 +1,13 @@
 # REACH Climate–Health Early Warning Data Portal
 
+## V11 hotfix - 03 Oct 2026
+
+- Fixed a Plotly compatibility error caused by the obsolete `colorbar.titlefont` property.
+- Facility contour/gradient surfaces are fully visible again (no faded scientific surface).
+- Contour numbers and facility names remain dark, opaque and readable above the gradient.
+- Raw Plotly exception/schema text is no longer exposed to portal users if a figure fails.
+
+
 **Final GitHub / Streamlit release — 3 October 2026**  
 **V10 · Accessible selectors and navigation + transparent scientific surfaces**
 

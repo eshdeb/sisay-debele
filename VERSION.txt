@@ -1,24 +1,2 @@
-REACH Climate–Health EWS
-Final GitHub / Streamlit release
-Date: 2026-10-03
-Release: V10 · Accessible selectors and navigation + transparent scientific surfaces
-
-Core platform retained:
-- Zambia: all 116 districts
-- Brazil: all 5,572 municipalities
-- REACH pilot verification: Senanga, Sinazongwe, Recife and Palmares
-- short-, medium-, sub-seasonal and seasonal forecast workflows
-- heat, rainfall flood, river-discharge flood, drought and compound-hazard views
-- GloFAS, climate drivers, return periods, Stella/SDM hand-off and historical verification
-- facility drill-down, labelled contours, facility bars and ECMWF/NOAA/ERA5 comparison
-
-V10 interaction/accessibility revision:
-- Forecast setup selectors now use a light scholarly blue-grey field with dark readable text
-- the dropdown chevron has a dedicated 56 px dark-teal button area with a white 22 px icon
-- the full select control uses a pointer cursor and remains clickable
-- dropdown menu options use larger dark text with a light hover state
-- inactive analysis tabs are light/muted with dark text; the selected tab is dark teal with white text
-- scientific gradient surfaces remain translucent while contour labels, facility names and markers remain opaque
-
-Scientific boundary:
-A facility-specific forecast is a point-specific hazard/exposure signal. A facility contour surface is an IDW visual interpolation of those point samples, not the native model grid. Operational facility risk must not be inferred unless readiness/access data such as staffing, WASH, electricity, cold chain, service availability or access disruption are explicitly integrated.
+V11 - 03 Oct 2026
+Fix Plotly contour colorbar compatibility; restore fully visible gradient surfaces; keep dark opaque contour values and facility labels; suppress raw technical tracebacks in the public UI.
