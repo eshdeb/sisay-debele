@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 _APP_NOTES = """
-REACH Climate–Health Early Warning Data Portal · FINAL V7 · FACILITY CONTOURS + BAR COMPARISON + COVERAGE DOCUMENTATION
+REACH Climate–Health Early Warning Data Portal · FINAL V9 · TRANSPARENT FACILITY SURFACES + OPAQUE SCIENTIFIC LABELS
 
 V5.0 restores/preserves the V4.4 + V4.5 functionality and adds:
 - Zambia + Brazil country selector.
@@ -28,6 +28,7 @@ V5.0 restores/preserves the V4.4 + V4.5 functionality and adds:
 - Labelled facility contour surfaces for temperature and rainfall where spatial variation exists.
 - Facility comparison bar charts, parent-area/facility summary statistics and clearer district/facility interpretation.
 - Expanded documentation for national geography and REACH pilot facility coverage.
+- V9 separates visual transparency from scientific content: gradient fills are lighter, while contour numbers, facility names, markers, titles and values remain dark/opaque.
 
 Scientific boundary:
 Compound scores are screening indices unless explicitly described as a forecast
@@ -114,86 +115,112 @@ div.stButton > button:hover{background:#115E59;color:white;border:0}
 a[data-testid="stLinkButton"]{background:#0B5A7A;color:white !important;border-radius:10px;border:0;font-weight:800;box-shadow:0 4px 12px rgba(11,90,122,.15)}
 
 /* ------------------------------------------------------------------
-   High-contrast analysis navigation and forecast controls.
-   Streamlit 1.64 changed some BaseWeb nesting, so target both test IDs
-   and ARIA roles. The broader selectors are intentional.
+   Accessible scholarly navigation and forecast controls.
+   V10 deliberately uses light controls with dark text and a large,
+   high-contrast chevron zone so the full selector reads as clickable.
    ------------------------------------------------------------------ */
 [data-testid="stTabs"] [role="tablist"],
 div[data-baseweb="tab-list"]{
-  gap:.46rem !important; display:flex !important; flex-wrap:wrap !important;
-  overflow:visible !important; background:#E7EEF5 !important;
-  border:1px solid #B8C6D6 !important; border-radius:16px !important;
+  gap:.48rem !important; display:flex !important; flex-wrap:wrap !important;
+  overflow:visible !important; background:#F3F6F8 !important;
+  border:1px solid #CDD8DE !important; border-radius:15px !important;
   padding:.50rem !important; margin:.25rem 0 .85rem !important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.85) !important;
+  box-shadow:0 2px 8px rgba(15,23,42,.05) !important;
 }
 [data-testid="stTabs"] [role="tab"],
 [data-testid="stTabs"] button[data-baseweb="tab"],
 button[data-baseweb="tab"]{
-  min-height:46px !important; height:auto !important; white-space:normal !important;
-  border-radius:11px !important; padding:.60rem .88rem !important;
-  color:#FFFFFF !important; font-weight:850 !important; letter-spacing:.004em !important;
-  border:1px solid rgba(255,255,255,.20) !important;
-  background:#1E3A5F !important;
-  background-image:linear-gradient(135deg,#334155 0%,#1E3A5F 100%) !important;
-  box-shadow:0 4px 10px rgba(15,23,42,.15) !important;
-  opacity:1 !important;
+  min-height:48px !important; height:auto !important; white-space:normal !important;
+  border-radius:10px !important; padding:.64rem .92rem !important;
+  color:#243746 !important; font-weight:820 !important; letter-spacing:.003em !important;
+  border:1px solid #C9D5DA !important;
+  background:#E7EEF1 !important;
+  box-shadow:0 2px 6px rgba(15,23,42,.05) !important;
+  opacity:1 !important; cursor:pointer !important;
 }
 [data-testid="stTabs"] [role="tab"] *,
 button[data-baseweb="tab"] *{
-  color:#FFFFFF !important; font-weight:850 !important; opacity:1 !important;
+  color:#243746 !important; font-weight:820 !important; opacity:1 !important;
 }
 [data-testid="stTabs"] [role="tab"]:hover,
 button[data-baseweb="tab"]:hover{
-  filter:brightness(1.03) !important; transform:translateY(-1px) !important;
+  background:#DCE8EB !important; border-color:#8FA7AF !important;
+  transform:translateY(-1px) !important;
 }
 [data-testid="stTabs"] [role="tab"][aria-selected="true"],
 button[data-baseweb="tab"][aria-selected="true"]{
-  background:#496C72 !important;
-  background-image:none !important;
-  color:#FFFFFF !important; border:1px solid #C4A56A !important;
-  box-shadow:0 4px 12px rgba(55,78,84,.18) !important;
+  background:#496D73 !important;
+  color:#FFFFFF !important; border:1px solid #496D73 !important;
+  box-shadow:0 3px 9px rgba(42,73,79,.16) !important;
 }
+[data-testid="stTabs"] [role="tab"][aria-selected="true"] *,
+button[data-baseweb="tab"][aria-selected="true"] *{color:#FFFFFF !important;}
 [data-testid="stTabs"] [data-baseweb="tab-highlight"],
 [data-testid="stTabs"] [data-baseweb="tab-border"]{display:none !important;}
-/* Muted scholarly palette: high contrast without saturated dashboard colours. */
-[data-testid="stTabs"] [role="tab"]{opacity:.90 !important;filter:saturate(.72) !important;}
-[data-testid="stTabs"] [role="tab"]:nth-child(1){background:#627B82 !important}
-[data-testid="stTabs"] [role="tab"]:nth-child(2){background:#6E8177 !important}
-[data-testid="stTabs"] [role="tab"]:nth-child(3){background:#68778C !important}
-[data-testid="stTabs"] [role="tab"]:nth-child(4){background:#78806F !important}
-[data-testid="stTabs"] [role="tab"]:nth-child(5){background:#667B86 !important}
-[data-testid="stTabs"] [role="tab"]:nth-child(6){background:#747983 !important}
-[data-testid="stTabs"] [role="tab"]:nth-child(7){background:#7E7487 !important}
-[data-testid="stTabs"] [role="tab"][aria-selected="true"]{background:#496C72 !important;opacity:1 !important;filter:none !important}
 
-/* Forecast setup controls: softer translucent teal/slate fill, larger readable type. */
+/* Forecast setup controls: readable light field + obvious large dropdown button. */
 [data-testid="stSelectbox"] label p,
 [data-testid="stNumberInput"] label p,
 [data-testid="stSlider"] label p,
 [data-testid="stRadio"] label p{
-  color:#0F172A !important; font-weight:800 !important; font-size:1.10rem !important;
-  line-height:1.25 !important; margin-bottom:.18rem !important;
+  color:#0F172A !important; font-weight:820 !important; font-size:1.12rem !important;
+  line-height:1.28 !important; margin-bottom:.20rem !important;
 }
-[data-testid="stSelectbox"] [data-baseweb="select"] > div,
+[data-testid="stSelectbox"] [data-baseweb="select"]{
+  min-height:54px !important; border-radius:12px !important; overflow:hidden !important;
+  border:1px solid #AEBFC7 !important;
+  background:#EAF0F2 !important;
+  box-shadow:0 2px 7px rgba(15,23,42,.06) !important;
+  cursor:pointer !important;
+}
+[data-testid="stSelectbox"] [data-baseweb="select"] > div{
+  min-height:54px !important; background:transparent !important;
+  border:0 !important; border-radius:0 !important; box-shadow:none !important;
+  cursor:pointer !important;
+}
 [data-testid="stSelectbox"] [role="combobox"],
 [data-testid="stSelectbox"] div[aria-haspopup="listbox"]{
-  background:rgba(61,103,117,.72) !important;
-  background-image:linear-gradient(135deg,rgba(68,104,120,.74) 0%,rgba(74,116,108,.68) 100%) !important;
-  border:1px solid rgba(77,108,119,.52) !important; border-radius:12px !important;
-  min-height:50px !important; box-shadow:0 2px 8px rgba(55,78,84,.10) !important;
-  color:#FFFFFF !important;
+  min-height:54px !important; background:transparent !important;
+  border:0 !important; border-radius:0 !important; box-shadow:none !important;
+  color:#17313D !important; cursor:pointer !important;
 }
-[data-testid="stSelectbox"] [data-baseweb="select"] > div *,
 [data-testid="stSelectbox"] [role="combobox"] *,
 [data-testid="stSelectbox"] div[aria-haspopup="listbox"] *{
-  color:#FFFFFF !important; fill:#FFFFFF !important; font-weight:780 !important; font-size:1.08rem !important;
+  color:#17313D !important; font-weight:780 !important; font-size:1.09rem !important;
 }
-[data-testid="stSelectbox"] svg{fill:#FFFFFF !important;color:#FFFFFF !important}
-[data-baseweb="popover"] [role="listbox"]{background:#FFFFFF !important;border:1px solid #CBD5E1 !important}
+/* Make Streamlit/BaseWeb's chevron area a real visual button rather than a pale sliver. */
+[data-testid="stSelectbox"] [data-baseweb="select"] > div > div:last-child{
+  min-width:56px !important; width:56px !important; height:54px !important;
+  display:flex !important; align-items:center !important; justify-content:center !important;
+  background:#3F6872 !important; border-left:1px solid #345761 !important;
+  border-radius:0 11px 11px 0 !important; cursor:pointer !important;
+}
+[data-testid="stSelectbox"] [data-baseweb="select"] > div > div:last-child:hover{
+  background:#315761 !important;
+}
+[data-testid="stSelectbox"] [data-baseweb="select"] > div > div:last-child svg{
+  width:22px !important; height:22px !important; fill:#FFFFFF !important; color:#FFFFFF !important;
+  stroke:#FFFFFF !important; opacity:1 !important;
+}
+/* Fallback for Streamlit versions that expose the chevron outside the last inner div. */
+[data-testid="stSelectbox"] svg{
+  width:22px !important; height:22px !important; fill:#3F6872 !important; color:#3F6872 !important;
+  opacity:1 !important; pointer-events:none !important;
+}
+[data-testid="stSelectbox"] [data-baseweb="select"] > div > div:last-child svg{
+  fill:#FFFFFF !important; color:#FFFFFF !important; stroke:#FFFFFF !important;
+}
+[data-baseweb="popover"] [role="listbox"]{
+  background:#FFFFFF !important; border:1px solid #B8C8CF !important;
+  box-shadow:0 10px 24px rgba(15,23,42,.12) !important;
+}
 [data-baseweb="popover"] [role="option"],
-[role="listbox"] [role="option"]{color:#0F172A !important;background:#FFFFFF !important;font-weight:700 !important;font-size:.98rem !important}
+[role="listbox"] [role="option"]{
+  color:#152A35 !important; background:#FFFFFF !important;
+  font-weight:700 !important; font-size:1.02rem !important; min-height:44px !important;
+}
 [data-baseweb="popover"] [role="option"]:hover,
-[role="listbox"] [role="option"]:hover{background:#E0F2FE !important;color:#075985 !important}
+[role="listbox"] [role="option"]:hover{background:#E7F0F2 !important;color:#17313D !important}
 [data-testid="stNumberInput"] input,[data-testid="stTextInput"] input{
   border-radius:10px !important;border:1px solid #94A3B8 !important;background:#F8FAFC !important;font-weight:750 !important
 }
@@ -805,10 +832,12 @@ def _idw_grid(df, value_col, grid_size=70, power=2.0):
 def facility_contour_gradient_figure(df, value_col, title, unit, selected_code=None, colorscale=None, diverging=False):
     """Labelled IDW contour surface from facility point forecasts.
 
-    The surface is a visual interpolation of values sampled at facility coordinates;
-    it is not the native NWP grid. Contour values and facility names are printed on
-    the figure so the spatial pattern can be interpreted without relying on hover.
-    When all point values are effectively identical, no artificial gradient is drawn.
+    V9 intentionally separates *surface transparency* from *scientific content*.
+    The colour field is semi-transparent so the figure feels lighter, but contour
+    values, facility names, point markers, the selected-facility star and axes stay
+    fully opaque and dark. The surface is a visual interpolation of values sampled
+    at facility coordinates; it is not the native NWP grid. When all point values
+    are effectively identical, no artificial gradient is drawn.
     """
     grid=_idw_grid(df,value_col)
     vals=pd.to_numeric(df[value_col],errors="coerce")
@@ -824,36 +853,45 @@ def facility_contour_gradient_figure(df, value_col, title, unit, selected_code=N
     n_levels=7
     contour_step=span/n_levels
 
-    # Muted publication-style palettes chosen for legibility rather than saturation.
+    # Keep scientifically intuitive colours, but let the *surface* carry the
+    # transparency rather than fading labels/text. This preserves readability.
     if colorscale is not None:
         scale=colorscale
     elif diverging and unit=="°C":
-        scale=[[0.00,"#4E6B82"],[0.18,"#7895AA"],[0.36,"#B8CBD5"],[0.50,"#F2F0EA"],
-               [0.64,"#D7B4A7"],[0.82,"#B9786D"],[1.00,"#84514B"]]
+        scale=[[0.00,"#2C6C9E"],[0.18,"#6CA6C1"],[0.36,"#B9D8E2"],[0.50,"#F5F3EA"],
+               [0.64,"#F1C0A7"],[0.82,"#D9785C"],[1.00,"#A33F36"]]
     elif diverging:
-        scale=[[0.00,"#8A6958"],[0.18,"#B59A88"],[0.36,"#D9CDBF"],[0.50,"#F2F0EA"],
-               [0.64,"#BDD1DA"],[0.82,"#7EA3B3"],[1.00,"#4E7487"]]
+        scale=[[0.00,"#A85C3A"],[0.18,"#D49A77"],[0.36,"#EAD5C7"],[0.50,"#F5F3EA"],
+               [0.64,"#C7DDE5"],[0.82,"#77ABC0"],[1.00,"#2F718E"]]
     elif unit=="°C":
-        scale=[[0.00,"#536F86"],[0.20,"#7F9DB1"],[0.40,"#B9CAD2"],[0.58,"#DDD8C8"],
-               [0.76,"#C89A81"],[0.90,"#A96C5E"],[1.00,"#7F4E48"]]
+        scale=[[0.00,"#2C6C9E"],[0.18,"#63A4C2"],[0.36,"#A6D0D8"],[0.54,"#E4E6C8"],
+               [0.72,"#F3C56F"],[0.88,"#E57A4E"],[1.00,"#B43B39"]]
     else:
-        scale=[[0.00,"#EFF3F4"],[0.20,"#CFDEE3"],[0.42,"#9FBCC8"],[0.64,"#7398A8"],
-               [0.82,"#55798A"],[1.00,"#3D5D6B"]]
+        scale=[[0.00,"#EAF4F8"],[0.20,"#C8E0EA"],[0.42,"#8FC2D3"],[0.64,"#549AB5"],
+               [0.82,"#2E718F"],[1.00,"#154C67"]]
 
     decimals=1 if unit in ("°C","mm","%") else 0
     fig=go.Figure()
+
+    # 1) Light, semi-transparent colour field only.
     fig.add_trace(go.Contour(
         x=gx,y=gy,z=zz,colorscale=scale,zmin=zmin,zmax=zmax,
-        contours=dict(
-            start=zmin,end=zmax,size=contour_step,coloring="heatmap",
-            showlines=True,showlabels=True,
-            labelfont=dict(size=12,color="#25323A",family="Arial")
-        ),
-        line=dict(width=.85,color="rgba(37,50,58,.48)"),
-        opacity=.72,
-        colorbar=dict(title=unit,thickness=13,len=.70,tickformat=f".{decimals}f",outlinewidth=0),
+        contours=dict(start=zmin,end=zmax,size=contour_step,coloring="heatmap",showlines=False,showlabels=False),
+        line=dict(width=0),opacity=.46,
+        colorbar=dict(title=unit,thickness=13,len=.70,tickformat=f".{decimals}f",outlinewidth=0,
+                      tickfont=dict(color="#1F2937",size=11),titlefont=dict(color="#111827",size=12)),
         hovertemplate=f"Longitude %{{x:.3f}}<br>Latitude %{{y:.3f}}<br>Interpolated value %{{z:.{decimals}f}} {unit}<extra></extra>",
         name="Interpolated facility-point forecast"
+    ))
+
+    # 2) Fully opaque dark contour lines + numeric labels. This is deliberately
+    # separate from the translucent fill so values never fade with the surface.
+    fig.add_trace(go.Contour(
+        x=gx,y=gy,z=zz,zmin=zmin,zmax=zmax,showscale=False,
+        contours=dict(start=zmin,end=zmax,size=contour_step,coloring="lines",showlines=True,showlabels=True,
+                      labelfont=dict(size=12,color="#111827",family="Arial Black")),
+        line=dict(width=1.05,color="#263238"),opacity=1.0,
+        hoverinfo="skip",name="Labelled contours",showlegend=False
     ))
 
     point_custom=np.stack([
@@ -862,13 +900,13 @@ def facility_contour_gradient_figure(df, value_col, title, unit, selected_code=N
     ],axis=1)
     positions=["top center","bottom center","middle right","middle left"]
     text_positions=[positions[i % len(positions)] for i in range(len(df))]
-    label_size=9 if len(df)<=35 else (8 if len(df)<=70 else 7)
+    label_size=10 if len(df)<=35 else (9 if len(df)<=70 else 8)
     fig.add_trace(go.Scatter(
         x=df["rep_lon"],y=df["rep_lat"],mode="markers+text",
         text=df["FacilityName"].astype(str),textposition=text_positions,
-        textfont=dict(size=label_size,color="rgba(31,41,55,.78)",family="Arial"),
-        marker=dict(size=7.5,color=vals,colorscale=scale,cmin=zmin,cmax=zmax,opacity=.78,
-                    line=dict(width=.8,color="rgba(255,255,255,.92)"),showscale=False),
+        textfont=dict(size=label_size,color="#111827",family="Arial"),
+        marker=dict(size=8,color=vals,colorscale=scale,cmin=zmin,cmax=zmax,opacity=.96,
+                    line=dict(width=1.0,color="#FFFFFF"),showscale=False),
         customdata=point_custom,hovertemplate="<b>%{customdata[0]}</b><br>%{customdata[1]}<extra></extra>",
         name="Health facilities",cliponaxis=False
     ))
@@ -878,18 +916,18 @@ def facility_contour_gradient_figure(df, value_col, title, unit, selected_code=N
             r=sel.iloc[0]
             fig.add_trace(go.Scatter(
                 x=[r.rep_lon],y=[r.rep_lat],mode="markers+text",text=[f"★ {r.FacilityName}"],textposition="top center",
-                textfont=dict(size=11,color="#263238",family="Arial"),
-                marker=dict(size=15,symbol="star",color="#B38B45",opacity=.90,line=dict(width=1.4,color="#F7F4EE")),
+                textfont=dict(size=11,color="#111827",family="Arial Black"),
+                marker=dict(size=16,symbol="star",color="#C28A16",opacity=1.0,line=dict(width=1.5,color="#FFFFFF")),
                 name="Selected facility",cliponaxis=False
             ))
     fig.update_layout(
-        title=dict(text=title,x=.01,xanchor="left",font=dict(size=15,color="#24323A")),height=540,
+        title=dict(text=title,x=.01,xanchor="left",font=dict(size=15,color="#111827")),height=540,
         xaxis_title="Longitude",yaxis_title="Latitude",margin=dict(l=40,r=20,t=58,b=44),
-        legend=dict(orientation="h",y=-.15,font=dict(size=10,color="#42525A")),
-        plot_bgcolor="#F7F8F8",paper_bgcolor="white",font=dict(color="#34434B",family="Arial")
+        legend=dict(orientation="h",y=-.15,font=dict(size=10,color="#1F2937")),
+        plot_bgcolor="#FBFCFD",paper_bgcolor="white",font=dict(color="#1F2937",family="Arial")
     )
-    fig.update_xaxes(gridcolor="rgba(148,163,184,.18)",zeroline=False)
-    fig.update_yaxes(scaleanchor="x",scaleratio=1,gridcolor="rgba(148,163,184,.18)",zeroline=False)
+    fig.update_xaxes(gridcolor="rgba(148,163,184,.16)",zeroline=False,tickfont=dict(color="#374151"),titlefont=dict(color="#374151"))
+    fig.update_yaxes(scaleanchor="x",scaleratio=1,gridcolor="rgba(148,163,184,.16)",zeroline=False,tickfont=dict(color="#374151"),titlefont=dict(color="#374151"))
     return fig
 
 def facility_temperature_gradient_figure(df, value_col, title, selected_code=None, diverging=False):
@@ -916,10 +954,10 @@ def facility_signal_bar_figure(df, value_col, title, unit, selected_code=None, m
     if not selected.empty and str(selected.iloc[0]["REGION_CODE"]) not in set(d["REGION_CODE"].astype(str)):
         d=pd.concat([d,selected],ignore_index=True).drop_duplicates("REGION_CODE",keep="last")
     d=d.sort_values("_v",ascending=True)
-    colors=["#B38B45" if selected_code and str(c)==str(selected_code) else "#607F8E" for c in d["REGION_CODE"]]
+    colors=["#C28A16" if selected_code and str(c)==str(selected_code) else "#6F8FA0" for c in d["REGION_CODE"]]
     labels=[("★ " if selected_code and str(c)==str(selected_code) else "")+str(n) for c,n in zip(d["REGION_CODE"],d["FacilityName"])]
     fig=go.Figure(go.Bar(
-        x=d["_v"],y=labels,orientation="h",marker=dict(color=colors,opacity=.78,line=dict(width=.4,color="rgba(52,67,75,.28)")),
+        x=d["_v"],y=labels,orientation="h",marker=dict(color=colors,opacity=.68,line=dict(width=.45,color="rgba(52,67,75,.30)")),
         text=[f"{v:.1f} {unit}" for v in d["_v"]],textposition="outside",
         hovertemplate="<b>%{y}</b><br>%{x:.1f} "+unit+"<extra></extra>"
     ))
@@ -949,8 +987,8 @@ def facility_two_model_bar_figure(df, col_a, col_b, title, unit, selected_code=N
     d=d.sort_values("_mean",ascending=True)
     labels=[("★ " if selected_code and str(c)==str(selected_code) else "")+str(n) for c,n in zip(d["REGION_CODE"],d["FacilityName"])]
     fig=go.Figure()
-    fig.add_trace(go.Bar(x=d["_a"],y=labels,orientation="h",name="ECMWF IFS HRES",marker=dict(color="#5C788A",opacity=.78,line=dict(width=.35,color="rgba(52,67,75,.24)")),text=[f"{v:.1f}" if pd.notna(v) else "" for v in d["_a"]],textposition="outside"))
-    fig.add_trace(go.Bar(x=d["_b"],y=labels,orientation="h",name="NOAA GFS",marker=dict(color="#887B9B",opacity=.74,line=dict(width=.35,color="rgba(72,61,84,.22)")),text=[f"{v:.1f}" if pd.notna(v) else "" for v in d["_b"]],textposition="outside"))
+    fig.add_trace(go.Bar(x=d["_a"],y=labels,orientation="h",name="ECMWF IFS HRES",marker=dict(color="#66889A",opacity=.68,line=dict(width=.40,color="rgba(52,67,75,.26)")),text=[f"{v:.1f}" if pd.notna(v) else "" for v in d["_a"]],textposition="outside"))
+    fig.add_trace(go.Bar(x=d["_b"],y=labels,orientation="h",name="NOAA GFS",marker=dict(color="#8B7F98",opacity=.64,line=dict(width=.40,color="rgba(72,61,84,.24)")),text=[f"{v:.1f}" if pd.notna(v) else "" for v in d["_b"]],textposition="outside"))
     fig.update_layout(
         barmode="group",title=dict(text=title,x=.01,xanchor="left",font=dict(size=15)),
         height=max(460,30*len(d)+140),xaxis_title=unit,yaxis_title="",

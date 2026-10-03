@@ -1,9 +1,16 @@
 # REACH Climate–Health Early Warning Data Portal
 
-**Final GitHub / Streamlit release — 2 October 2026**  
-**V8 · Facility-name contour labels + seasonal/sub-seasonal facility gradients + muted publication-style interface**
+**Final GitHub / Streamlit release — 3 October 2026**  
+**V10 · Accessible selectors and navigation + transparent scientific surfaces**
 
 This repository contains the full REACH climate–health research decision-support dashboard.
+
+
+## V10 accessibility and interaction refinement
+
+The forecast-setup selectors have been redesigned for clearer interaction after browser testing. Each selector now uses a light scholarly blue-grey field with dark text, while the dropdown chevron sits in a large dark-teal button area on the right. This removes the narrow pale strip that was difficult to see and click. The full selector remains clickable, and the menu options use larger dark text on white.
+
+The main analysis tabs also use a calmer accessible treatment: light muted inactive tabs with dark text and a dark-teal active tab with white text. Scientific gradient surfaces remain deliberately translucent, while contour lines, contour values, facility names, markers and selected-facility symbols remain fully opaque and high contrast.
 
 ## Coverage and core functions
 
@@ -68,10 +75,10 @@ The seven main analysis tabs are now filled controls with bold white text so all
 - Downloads · CSV / Stella
 - Forecast verification · REACH pilots
 
-The tab strip wraps on narrower screens. The active tab has a distinct teal/navy style and focus border. Forecast-setup selectors, radio controls, download buttons and source buttons also use filled high-contrast styles. V8 further softens the selector fill and tab palette while retaining high contrast and larger label/selected-value font sizes, so controls remain easy to find without dominating the scientific figures.
+The tab strip wraps on narrower screens. The active tab has a distinct teal/navy style and focus border. Forecast-setup selectors, radio controls, download buttons and source buttons also use filled high-contrast styles. V9 keeps filled controls but makes the background treatment lighter. Transparency is applied to backgrounds/fills only; labels, selected values and icons stay fully opaque and high-contrast.
 
 
-## V8 visual, facility-gradient and model-comparison revision
+## V9 visual, facility-gradient and model-comparison revision
 
 This release adds the visual analysis requested for district/municipality and facility forecasts without removing the existing numerical cards, maps, ensemble uncertainty, hydrology, climate drivers, SDM outputs or verification workflows.
 
@@ -87,7 +94,7 @@ For short- and medium-range heat forecasts, the dashboard:
 - shows an ECMWF-minus-GFS spatial difference map
 - exposes the underlying point values in a table and downloadable CSV
 
-The coloured gradient is an **inverse-distance interpolation of forecast values sampled at facility points**. V8 prints both **facility names** and **labelled contour values** directly on the surface so the figure remains interpretable without hover. It is a visualisation layer and is not presented as the native model grid. If all facility precipitation values are effectively identical, the app does not invent a gradient; it falls back to the facility point map.
+The coloured gradient is an **inverse-distance interpolation of forecast values sampled at facility points**. V9 prints both **facility names** and **labelled contour values** directly on the surface using dark opaque text. The underlying colour surface is deliberately more transparent so labels stay readable without hover. It is a visualisation layer and is not presented as the native model grid. If all facility precipitation values are effectively identical, the app does not invent a gradient; it falls back to the facility point map.
 
 For rainfall-driven flood forecasts, the same section shows side-by-side labelled facility rainfall contours when spatial variation exists, a grouped ECMWF/GFS facility bar chart, and a model-difference map. Compound Flood + Heatwave now displays both the temperature and rainfall comparison panels.
 
@@ -95,7 +102,7 @@ For rainfall-driven flood forecasts, the same section shows side-by-side labelle
 
 ### Seasonal and sub-seasonal facility gradients
 
-V8 makes the facility-gradient workflow consistent across all forecast horizons. For **Sub-seasonal (weeks 2–6)** and **Seasonal (months 1–7)** selections, the app now uses the physical ECMWF EC46/SEAS5 anomaly fields already fetched for the facility screen to create:
+V9 retains the V8 facility-gradient workflow consistently across all forecast horizons. For **Sub-seasonal (weeks 2–6)** and **Seasonal (months 1–7)** selections, the app now uses the physical ECMWF EC46/SEAS5 anomaly fields already fetched for the facility screen to create:
 
 - facility **temperature anomaly** contour gradients (°C) for heat-related views
 - facility **precipitation anomaly** contour gradients (mm) for rainfall/drought-related views
@@ -106,7 +113,7 @@ These long-range surfaces use a centred, muted diverging palette so negative and
 
 ### Muted publication-style visual design
 
-V8 reduces colour saturation across the facility contour plots, facility bar charts, model-comparison bars and analysis tabs. The design uses muted blue-grey, teal, clay and plum tones with increased transparency, lighter plot backgrounds and restrained highlights. Forecast-setup selectors retain filled styling but use softer translucent teal/slate backgrounds with larger text. This keeps controls visible while making the dashboard calmer and more suitable for research and publication-facing presentations.
+V9 uses transparent colour fields without making the scientific content transparent. Gradient fills are lighter, while contour values, facility names, markers, selected-facility symbols, titles and axes remain dark and opaque. Facility bars use softer fills with opaque value labels. Tabs use translucent backgrounds while their text/icons remain fully opaque. This preserves the informative colour contrast of earlier versions but makes the dashboard calmer and easier to read.
 
 ### Facility bar charts and summary statistics
 

@@ -52,17 +52,17 @@ The Brazil facility registry is retrieved from the public CNES/DATASUS API at ru
 Facility outputs are point-specific hazard/exposure signals. Do not label them operational facility risk unless readiness/access data are explicitly integrated.
 
 
-## V8 checks
+## V9 checks
 
 After deployment, also confirm:
-- the top analysis tabs render as muted filled buttons with white text and a restrained active-state highlight
+- the top analysis tabs render with translucent professional fills while tab text/icons remain fully opaque and the active tab remains clearly highlighted
 - Forecast setup selectboxes render as softer translucent teal/slate controls with larger readable text
 - Brazil facility dropdowns show facility names without unexplained numeric CNES type suffixes
 - Heatwave short/medium range shows side-by-side ECMWF and NOAA GFS facility temperature-gradient plots with labelled contour values, grouped facility bars and a model-difference map
 - every facility contour/gradient prints facility names beside point markers as well as labelled contour values
 - Sub-seasonal selections (Week 2 through Weeks 2–6) show facility temperature/precipitation anomaly gradients where relevant
 - Seasonal selections (Month 1 through Month 7 and multi-month windows) show facility temperature/precipitation anomaly gradients where relevant
-- facility bars and model-comparison figures use muted semi-transparent publication-style colours rather than saturated blue/purple fills
+- facility bars use softer semi-transparent fills while value labels remain fully opaque; contour fills are transparent but contour numbers/facility names are dark and opaque
 - Rainfall short/medium range shows labelled facility rainfall contours when values vary spatially, grouped ECMWF/GFS bars and a model-difference map
 - Facility forecast screen includes a direct-value bar chart plus facility minimum/mean/median/maximum/range statistics
 - Spatial summary shows selected area, selected value, minimum, mean, median, maximum and mapped range
@@ -70,3 +70,7 @@ After deployment, also confirm:
 - the selected district/municipality or facility shows the 2×2 ECMWF/GFS/ERA5 historical-context comparison in Time series & uncertainty
 - ERA5 is labelled as historical climatology/threshold context for future forecasts, while actual retrospective verification remains in Forecast verification
 - the selected-data ZIP includes `facility_ecmwf_gfs_comparison.csv` when facility model comparison is available
+
+
+## V10 selector accessibility check
+After deployment, confirm that the full Forecast setup field is clickable and that the right-hand chevron appears inside a clearly visible dark-teal button area rather than a narrow pale strip. Also confirm that inactive tabs use dark text on light muted backgrounds and the selected tab uses white text on dark teal.

@@ -47,11 +47,12 @@ Check at minimum:
 - Forecast verification remains clearly identified as parent pilot-area verification
 
 
-## V8 checks
+## V10 checks
 
 After deployment, also confirm:
-- the top analysis tabs render as filled coloured buttons with bold white text, including the active tab
-- Forecast setup selectboxes render as filled teal/navy controls rather than pale grey fields
+- inactive analysis tabs render as light muted buttons with dark readable text; the active tab renders dark teal with white text
+- Forecast setup selectboxes render as light blue-grey clickable fields with dark text and a large dark-teal chevron button on the right
+- the right-hand dropdown button is clearly visible, comfortably wide, and easy to click
 - Brazil facility dropdowns show facility names without unexplained numeric CNES type suffixes
 - Heatwave short/medium range shows side-by-side ECMWF and NOAA GFS facility temperature-gradient plots with labelled contour values, grouped facility bars and a model-difference map
 - Rainfall short/medium range shows labelled facility rainfall contours when values vary spatially, grouped ECMWF/GFS bars and a model-difference map
@@ -63,4 +64,4 @@ After deployment, also confirm:
 - the selected-data ZIP includes `facility_ecmwf_gfs_comparison.csv` when facility model comparison is available
 
 
-V8 visual check: verify facility names appear on the contour surfaces, then test one Sub-seasonal and one Seasonal pilot view to confirm the long-range facility anomaly gradient renders.
+V9 visual check: verify the gradient surface is lighter/transparent while contour numbers and facility names remain dark and fully readable; then test one Sub-seasonal and one Seasonal pilot view.
