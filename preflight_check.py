@@ -59,6 +59,11 @@ if "Facility forecast gradient · selected forecast" not in source:
     raise SystemExit("Cross-horizon facility gradient block is missing.")
 print("[PASS] Facility gradient is wired for the active forecast across all horizons.")
 
+for marker in ["forecast_validity", "format_valid_window", "_facility_time_choices", "_facility_values_at_time", "Facility gradient / bar valid time", "facility_temporal_label"]:
+    if marker not in source:
+        raise SystemExit(f"[FAIL] Missing V14 space-time marker: {marker}")
+print("[PASS] Space-time forecast validity and cascading facility time selector are present.")
+
 z_geo = json.loads((ROOT / "zambia_116_districts.geojson").read_text(encoding="utf-8"))
 b_geo = json.loads((ROOT / "brazil_5572_municipalities_simplified.geojson").read_text(encoding="utf-8"))
 z_pts = pd.read_csv(ROOT / "zambia_116_district_forecast_points.csv")

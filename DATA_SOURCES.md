@@ -83,3 +83,8 @@ The facility contour surfaces are visual IDW interpolations of point-sampled for
 
 ### V12 facility-gradient consistency
 V12 keeps all existing portal content and restores a fully visible facility contour/gradient for the active temperature or precipitation forecast across short-range, medium-range, sub-seasonal and seasonal horizons. Facility names and dark contour-value labels are drawn directly on the surface. The surface is a visual IDW interpolation of forecast values sampled at facility coordinates and must not be interpreted as the native forecast-model grid. V12 also updates Plotly axis-title syntax for current Plotly 6.x compatibility and uses a restrained publication-style palette without fading the scientific gradient surface.
+
+
+## Forecast time semantics
+
+The portal records and displays the **forecast-valid calendar interval** derived from the time coordinates returned by the active source. Daily deterministic products are interpreted as UTC-day aggregates; sub-seasonal products as weekly aggregates; seasonal products as monthly aggregates. A model issue/run timestamp is not inferred when the public adapter does not expose it. This avoids presenting a retrieval time as though it were a model initialization time.

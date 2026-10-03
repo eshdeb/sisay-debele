@@ -4,7 +4,7 @@
 
 The portal is designed as an end-to-end research decision-support workflow rather than a collection of disconnected charts. The interaction model is:
 
-**Monitor → Locate → Compare → Act → Verify**
+**Monitor → Locate → Time → Compare → Act → Verify**
 
 This keeps the scientific forecasting workflow connected to district/municipality screening, facility drill-down, uncertainty, decision support and retrospective verification.
 
@@ -58,7 +58,8 @@ Source-specific data are translated to a consistent application vocabulary:
 
 - country / state / district / municipality / facility
 - forecast horizon
-- valid period
+- valid period and calendar-valid UTC interval
+- temporal aggregation (daily / weekly / monthly)
 - hazard
 - physical vs probabilistic view
 - units and thresholds
@@ -108,9 +109,21 @@ Outputs include:
 
 The primary selection path is:
 
-**Country → state (Brazil only) → forecast horizon → hazard → valid period → map type → district/municipality → facility**
+**Country → state (Brazil only) → forecast horizon → hazard → valid period → district/municipality → facility → valid day/week/month (when supported) → map type**
 
 A change high in the hierarchy should cascade to every downstream element. A facility never becomes a peer of a district/municipality; it remains nested beneath its parent geography.
+
+## Space–time forecast contract
+
+Every forecast result is treated as a space–time object, not a location-only value:
+
+**Location + source/model + valid start + valid end + temporal aggregation + forecast value + unit**
+
+For short/medium-range daily products, the dashboard displays the UTC calendar date associated with the daily aggregate. Daily Tmax does not imply an exact hour of occurrence. Rainfall facility snapshots use the rolling 3-day accumulation ending on the selected UTC date when that is the active screening metric.
+
+For sub-seasonal and seasonal products, the valid object is a week or month (or a multi-week/month summary). The interface therefore uses weekly/monthly valid windows rather than inventing an exact event time.
+
+The dashboard distinguishes **forecast-valid time** from **model issue/run time**. An issue/run timestamp is displayed only when the source adapter exposes it reliably. If the upstream API does not provide it, the application does not infer or fabricate it.
 
 ## Reliability rules
 

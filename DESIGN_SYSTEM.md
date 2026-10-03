@@ -7,7 +7,7 @@ The portal should feel like a scientific decision-support product: calm, legible
 ## Information hierarchy
 
 1. **Purpose and trust:** what the portal is for; official warning caveat.
-2. **Decision journey:** Monitor → Locate → Compare → Act.
+2. **Decision journey:** Monitor → Locate → Time → Compare → Act.
 3. **Geographic scope:** country/state and parent administrative area.
 4. **Forecast configuration:** horizon, hazard, valid period, model/view.
 5. **Primary spatial result:** the map is the dominant evidence surface.
@@ -51,10 +51,19 @@ Scientific map palettes remain variable-specific and must prioritise perceptual 
 Use multiple views only when each contributes a distinct decision perspective:
 
 - map = where
+- forecast-valid banner / time selector = when the mapped value applies
 - summary metrics = how much
-- bar comparison = which facility/area
-- time series = when
+- bar comparison = which facility/area at the same valid time
+- time series = how the signal evolves through time
 - model comparison = agreement/disagreement
 - verification = historical performance
 - decision briefing = what to do with the evidence
 
+
+## Temporal design rules
+
+- Never display a forecast value without a visible valid date or valid interval nearby.
+- Use UTC consistently in the cross-source interface; local-time conversion can be added later only with an explicit timezone label.
+- A time selector must cascade to all facility views that represent the selected physical quantity.
+- Daily, weekly and monthly products retain their native aggregation; do not imply an hourly event time when the source is aggregated.
+- Keep model issue/run time visually distinct from forecast-valid time.

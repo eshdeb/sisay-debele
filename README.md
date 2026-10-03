@@ -1,9 +1,23 @@
 # REACH Climate–Health Early Warning Data Portal
 
-## V13 design and architecture update
+## V14 space–time forecast architecture update
 
 This release preserves the existing forecast, facility, hydrology, verification and export functionality while improving the landing page and application architecture around one decision journey: **Monitor → Locate → Compare → Act**. The same country/horizon/hazard/period/area/facility context cascades across downstream views. See `ARCHITECTURE.md` and `DESIGN_SYSTEM.md`.
 
+
+### What changed in V14
+
+V14 keeps the V13 decision-centred landing page and all existing forecast, facility, hydrology, verification, Stella and download functionality, while making forecast time explicit.
+
+- Every spatial forecast now displays a calendar-valid UTC window, not only an abstract lead-time label.
+- Facility results support **Window summary** plus an individual valid day/week/month where the source product supports a defensible temporal slice.
+- The selected time cascades to facility metrics, the facility map/table, bar comparison and labelled contour gradient.
+- Short/medium heat uses daily Tmax; short/medium rainfall uses the rolling 3-day accumulation ending on the selected date.
+- Sub-seasonal and seasonal displays use weekly/monthly anomaly windows and do not invent an exact event hour.
+- Model issue/run time is shown only if an upstream source exposes it reliably; the portal never fabricates an issuance timestamp.
+- The Time series & uncertainty tab remains the appropriate place for finer temporal interpretation, including hourly timing where the upstream product supports it.
+
+The core interaction is now explicitly **space × time**: location, valid period and forecast value are interpreted together.
 
 ## V11 hotfix - 03 Oct 2026
 

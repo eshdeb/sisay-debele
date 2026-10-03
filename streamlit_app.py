@@ -1963,6 +1963,124 @@ def exact_window(index,horizon,period):
     s,e=daily_slice(horizon,period)
     return d0+pd.Timedelta(days=s),d0+pd.Timedelta(days=e)-pd.Timedelta(hours=1)
 
+def _first_series_from_payload(payload, horizon, hazard):
+    """Return a representative forecast series only to recover the source-valid calendar.
+
+    Values are never borrowed from this series for another location; it is used only for
+    the common time index returned by the same API request.
+    """
+    if not isinstance(payload,dict):
+        return pd.Series(dtype=float)
+    if horizon in ("Short range","Medium range"):
+        d=payload.get("det",{})
+        if not d: return pd.Series(dtype=float)
+        first=next(iter(d.values()),{})
+        key="tmax" if hazard=="Heatwave" else "precip"
+        return first.get(key,pd.Series(dtype=float))
+    d=payload.get("long",{})
+    if not d: return pd.Series(dtype=float)
+    first=next(iter(d.values()),{})
+    section,_=long_slice(period)
+    key=f"{section}_temp" if hazard=="Heatwave" else f"{section}_precip"
+    return first.get(key,pd.Series(dtype=float))
+
+
+def forecast_validity(payload,horizon,period,hazard):
+    """Calendar-validity metadata for the selected forecast window.
+
+    Daily products are represented as full UTC days because Tmax and precipitation_sum
+    are daily aggregates. Weekly/monthly anomaly products are represented by their
+    aggregation interval; no artificial event hour is assigned to long-range outlooks.
+    """
+    ser=_first_series_from_payload(payload,horizon,hazard)
+    idx=pd.DatetimeIndex(ser.index) if isinstance(ser,pd.Series) and len(ser) else pd.DatetimeIndex([])
+    if horizon in ("Short range","Medium range"):
+        if len(idx):
+            s,e=daily_slice(horizon,period)
+            view=idx[s:e]
+            if len(view):
+                start=pd.Timestamp(view.min()).floor("D")
+                end=pd.Timestamp(view.max()).floor("D")+pd.Timedelta(hours=23,minutes=59)
+                return start,end,"Daily forecast window"
+        d0=pd.Timestamp.now(tz="UTC").tz_localize(None).floor("D")
+        s,e=daily_slice(horizon,period)
+        return d0+pd.Timedelta(days=s),d0+pd.Timedelta(days=e)-pd.Timedelta(minutes=1),"Daily forecast window"
+    if len(idx):
+        section,sl=long_slice(period)
+        view=idx[sl]
+        if len(view):
+            start=pd.Timestamp(view.min()).floor("D")
+            if section=="weekly":
+                end=pd.Timestamp(view.max()).floor("D")+pd.Timedelta(days=6,hours=23,minutes=59)
+                return start,end,"Weekly anomaly window"
+            end=pd.Timestamp(view.max()).to_period("M").end_time.floor("min")
+            return start,end,"Monthly anomaly window"
+    return None,None,"Forecast window"
+
+
+def format_valid_window(start,end):
+    if start is None or end is None: return "—"
+    s=pd.Timestamp(start); e=pd.Timestamp(end)
+    if s.date()==e.date():
+        return f"{s.strftime('%d %b %Y')} · 00:00–23:59 UTC"
+    return f"{s.strftime('%d %b %Y')} → {e.strftime('%d %b %Y')} · UTC"
+
+
+def _facility_time_choices(payload,horizon,period,hazard):
+    ser=_first_series_from_payload(payload,horizon,hazard)
+    if not isinstance(ser,pd.Series) or ser.empty:
+        return []
+    if horizon in ("Short range","Medium range"):
+        s,e=daily_slice(horizon,period)
+        return [pd.Timestamp(x) for x in ser.index[s:e]]
+    _,sl=long_slice(period)
+    return [pd.Timestamp(x) for x in ser.index[sl]]
+
+
+def _facility_values_at_time(base_df,payload,horizon,hazard,when):
+    """Replace the window-summary value with a time-specific facility value.
+
+    Heat: daily Tmax or weekly/monthly temperature anomaly.
+    Rain: rolling 3-day accumulation ending on the selected day for short/medium range;
+    weekly/monthly precipitation anomaly for extended/seasonal range.
+    """
+    out=base_df.copy()
+    store=(payload or {}).get("det",{}) if horizon in ("Short range","Medium range") else (payload or {}).get("long",{})
+    vals=[]
+    for r in out.itertuples():
+        x=store.get(str(r.REGION_CODE),{})
+        if horizon in ("Short range","Medium range"):
+            if hazard=="Heatwave":
+                ser=x.get("tmax",pd.Series(dtype=float))
+                v=ser.get(when,np.nan) if hasattr(ser,"get") else np.nan
+            elif hazard=="Flood – rainfall":
+                ser=x.get("precip",pd.Series(dtype=float))
+                roll=ser.rolling(3,min_periods=3).sum() if len(ser) else ser
+                v=roll.get(when,np.nan) if hasattr(roll,"get") else np.nan
+            else:
+                v=np.nan
+        else:
+            section,_=long_slice(period)
+            if hazard=="Heatwave": key=f"{section}_temp"
+            elif hazard in ("Flood – rainfall","Drought / dry anomaly"): key=f"{section}_precip"
+            else: key=None
+            ser=x.get(key,pd.Series(dtype=float)) if key else pd.Series(dtype=float)
+            v=ser.get(when,np.nan) if hasattr(ser,"get") else np.nan
+        vals.append(float(v) if pd.notna(v) else np.nan)
+    out["value"]=vals
+    return out
+
+
+def _time_specific_label(horizon,hazard,when):
+    d=pd.Timestamp(when)
+    if horizon in ("Short range","Medium range"):
+        metric="Daily Tmax" if hazard=="Heatwave" else "3-day precipitation ending"
+        return f"{metric} · {d.strftime('%d %b %Y')} · UTC"
+    section="week" if horizon=="Sub-seasonal" else "month"
+    if section=="week":
+        return f"Weekly anomaly · {d.strftime('%d %b')}–{(d+pd.Timedelta(days=6)).strftime('%d %b %Y')} · UTC"
+    return f"Monthly anomaly · {d.strftime('%B %Y')}"
+
 
 # ---------------------------------------------------------------------------
 # Focus GloFAS
@@ -3399,7 +3517,7 @@ if geo_error is None and not regions.empty:
         _state_context = f" · {state_name}" if country=="Brazil" else ""
         _facility_context = (selected_facility.FacilityName if selected_facility is not None else "Area overview")
         st.markdown(
-            f'<div class="selection-context"><b>Current view:</b> {country}{_state_context} → {horizon} → {hazard} → {period} → {focus} → {_facility_context}</div>',
+            f'<div class="selection-context"><b>Current view:</b> {country}{_state_context} → {horizon} → {hazard} → {period_display_label(horizon,period)} → {focus} → {_facility_context}</div>',
             unsafe_allow_html=True,
         )
         st.markdown("#### Map display")
@@ -3451,9 +3569,16 @@ if geo_error is None and not regions.empty:
                     regions,hazard,horizon,period,mode,det_source,ensemble_system,temp_threshold,rain_threshold
                 )
             map_error=None
+            _valid_start,_valid_end,_valid_kind=forecast_validity(payload,horizon,period,hazard)
+            _valid_text=format_valid_window(_valid_start,_valid_end)
             st.caption(
-                f"{country} · {state_name if country=='Brazil' else '116 districts'} · {hazard} · {horizon} · {period} · "
+                f"{country} · {state_name if country=='Brazil' else '116 districts'} · {hazard} · {horizon} · {period_display_label(horizon,period)} · "
                 f"{mode} · {len(map_df)}/{len(regions)} areas · source status: {map_status}"
+            )
+            st.markdown(
+                f'<div class="selection-context"><b>Forecast validity:</b> {_valid_text} &nbsp; · &nbsp; <b>Temporal meaning:</b> {_valid_kind}. '
+                f'Values below must be interpreted against this valid period; UTC is used consistently across sources.</div>',
+                unsafe_allow_html=True,
             )
             source_label = (
                 det_source if horizon in ("Short range","Medium range") and hazard != "Flood – river discharge (GloFAS)"
@@ -3528,6 +3653,52 @@ if geo_error is None and not regions.empty:
                         f"The registry contains more than {FACILITY_SCREEN_SOFT_LIMIT} mapped facilities. "
                         "To protect the public forecast APIs, the comparison screen uses the MCH/hospital-priority subset and a capped set; the selected facility is always retained."
                     )
+
+                # Space–time facility view: preserve the original window summary, but allow
+                # a stakeholder to move through the valid dates/weeks/months when the
+                # selected metric has a defensible temporal slice.
+                facility_temporal_label = f"Window summary · {format_valid_window(*forecast_validity(_facility_payload,horizon,period,hazard)[:2])}"
+                facility_temporal_mode = "Window summary"
+                _time_choices=[]
+                _time_hazard = hazard if hazard in ("Heatwave","Flood – rainfall","Drought / dry anomaly") else None
+                if selected_facility_unit in ("°C","mm") and _time_hazard is not None:
+                    _time_choices=_facility_time_choices(_facility_payload,horizon,period,_time_hazard)
+                if _time_choices:
+                    st.markdown("#### Forecast time")
+                    _temporal_options=["Window summary"]+_time_choices
+                    def _fmt_time_opt(x):
+                        if x=="Window summary":
+                            return f"Window summary · {period_display_label(horizon,period)}"
+                        return _time_specific_label(horizon,_time_hazard,x)
+                    _temporal_pick=st.selectbox(
+                        "Facility gradient / bar valid time",_temporal_options,format_func=_fmt_time_opt,
+                        help="The selected time cascades to the facility metrics, map/table, bar chart and contour gradient. Window summary preserves the original period-aggregated view."
+                    )
+                    if _temporal_pick!="Window summary":
+                        facility_temporal_mode="Time-specific"
+                        facility_temporal_label=_time_specific_label(horizon,_time_hazard,_temporal_pick)
+                        facility_forecast_df=_facility_values_at_time(
+                            facility_forecast_df,_facility_payload,horizon,_time_hazard,pd.Timestamp(_temporal_pick)
+                        )
+                        if horizon in ("Short range","Medium range"):
+                            if _time_hazard=="Heatwave":
+                                st.caption("Daily Tmax is a daily aggregate, so an exact event hour is not assigned on the contour. Use the Time series & uncertainty tab for hourly model timing.")
+                            else:
+                                st.caption("Rainfall is shown as the rolling 3-day accumulation ending on the selected UTC date, consistent with the short/medium-range rainfall screening metric.")
+                        else:
+                            st.caption("Extended and seasonal products are weekly/monthly anomalies. The dashboard does not invent an exact event hour for these aggregated outlooks.")
+                    else:
+                        _fs,_fe,_fk=forecast_validity(_facility_payload,horizon,period,_time_hazard)
+                        facility_temporal_label=f"{period_display_label(horizon,period)} · {format_valid_window(_fs,_fe)} · {_fk}"
+                else:
+                    _fs,_fe,_fk=forecast_validity(_facility_payload,horizon,period,hazard)
+                    facility_temporal_label=f"{period_display_label(horizon,period)} · {format_valid_window(_fs,_fe)} · {_fk}"
+
+                st.markdown(
+                    f'<div class="selection-context"><b>Facility forecast valid time:</b> {facility_temporal_label}</div>',
+                    unsafe_allow_html=True,
+                )
+                facility_forecast_df["ValidTime"] = facility_temporal_label
                 facility_forecast_df["ForecastDisplay"]=[fmt(v,selected_facility_unit) for v in pd.to_numeric(facility_forecast_df["value"],errors="coerce")]
                 if selected_facility_unit=="%":
                     facility_forecast_df["SignalClass"]=pd.to_numeric(facility_forecast_df["value"],errors="coerce").map(risk_label)
@@ -3573,7 +3744,7 @@ if geo_error is None and not regions.empty:
                         use_container_width=True,config={"displayModeBar":True,"scrollZoom":True,"responsive":True}
                     )
                 with fright:
-                    table_cols=[c for c in ["Rank","FacilityName","FacilityType","ForecastDisplay","SignalClass","Source"] if c in facility_forecast_df]
+                    table_cols=[c for c in ["Rank","FacilityName","FacilityType","ForecastDisplay","ValidTime","SignalClass","Source"] if c in facility_forecast_df]
                     st.dataframe(facility_forecast_df[table_cols].head(35),hide_index=True,use_container_width=True,height=520)
 
                 st.markdown("#### Facility forecast values · bar comparison")
@@ -3582,7 +3753,7 @@ if geo_error is None and not regions.empty:
                     "The selected facility is highlighted with a gold bar/star when it is in the displayed set."
                 )
                 facility_bar=facility_signal_bar_figure(
-                    facility_forecast_df,"value",f"{focus} · facility {hazard.lower()} comparison",selected_facility_unit,facility_choice_code
+                    facility_forecast_df,"value",f"{focus} · facility {hazard.lower()} comparison · {facility_temporal_label}",selected_facility_unit,facility_choice_code
                 )
                 if facility_bar is not None:
                     st.plotly_chart(facility_bar,use_container_width=True,config={"displayModeBar":True,"responsive":True})
@@ -3599,10 +3770,12 @@ if geo_error is None and not regions.empty:
                         st.caption(
                             "The coloured field is a fully visible inverse-distance interpolation of the current facility-point forecast values. "
                             "Dark labelled contours show the forecast value and each mapped point is labelled with the facility name. "
+                            "The title carries the selected forecast-valid date/window so the surface is never interpreted without time. "
                             "This is a visual interpolation of values sampled at facility coordinates, not the native forecast-model grid."
                         )
+                        st.caption(f"**Valid time:** {facility_temporal_label}")
                         _is_diverging = (horizon in ("Sub-seasonal","Seasonal") or "anomaly" in str(mode).lower() or hazard=="Drought / dry anomaly")
-                        _grad_title = f"{focus} · facility {hazard.lower()} gradient · {period_display_label(horizon,period)}"
+                        _grad_title = f"{focus} · facility {hazard.lower()} gradient · {facility_temporal_label}"
                         if selected_facility_unit=="°C":
                             _generic_grad=facility_temperature_gradient_figure(
                                 facility_forecast_df,"value",_grad_title,facility_choice_code,diverging=_is_diverging
@@ -4409,6 +4582,9 @@ The backend follows a source-adapter → cache/retry → harmonisation → forec
 - A facility value is the same forecast sampled at the facility's own latitude/longitude.
 - Facility minimum/mean/median/maximum/range statistics refer to the mapped facilities evaluated within the selected parent area; they are **not** the min/max over every grid cell in the district.
 - Labelled contour maps are an inverse-distance visual interpolation of facility point values. The bars and facility table show the direct sampled values.
+- Every forecast map and facility gradient is explicitly time-qualified. Short/medium-range daily values show a UTC valid date (daily Tmax is a daily aggregate; rainfall uses a rolling 3-day accumulation ending on the selected date). Sub-seasonal and seasonal values use weekly/monthly valid windows.
+- The user can switch the facility display between the original window summary and an individual valid day/week/month; that choice cascades to facility metrics, table, bar chart and contour gradient.
+- A model **issue/run time** is shown only when the upstream API exposes it reliably. The current public adapters always show forecast-valid time and do not invent an issuance timestamp.
 """
         )
         project_counts=zambia_project_facility_counts()

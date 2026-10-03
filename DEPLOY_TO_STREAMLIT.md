@@ -78,3 +78,8 @@ After deployment, confirm that the full Forecast setup field is clickable and th
 
 ### V12 facility-gradient consistency
 V12 keeps all existing portal content and restores a fully visible facility contour/gradient for the active temperature or precipitation forecast across short-range, medium-range, sub-seasonal and seasonal horizons. Facility names and dark contour-value labels are drawn directly on the surface. The surface is a visual IDW interpolation of forecast values sampled at facility coordinates and must not be interpreted as the native forecast-model grid. V12 also updates Plotly axis-title syntax for current Plotly 6.x compatibility and uses a restrained publication-style palette without fading the scientific gradient surface.
+
+
+## V14 post-deploy check
+
+After deployment, confirm that the Spatial forecast outlook shows a calendar-valid UTC window and that, in a REACH pilot facility view, the **Facility gradient / bar valid time** selector changes the facility metrics, table, bars and contour gradient together. Check one short/medium-range heat view and one sub-seasonal/seasonal view.
