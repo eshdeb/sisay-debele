@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 _APP_NOTES = """
-REACH Climate–Health Early Warning Data Portal · FINAL V13 · DECISION-CENTRED LANDING + CASCADING UX
+REACH Climate–Health Early Warning Data Portal · FINAL V15 · DECISION-CENTRED + SPACE-TIME + BRAZIL FACILITY QA
 
 V5.0 restores/preserves the V4.4 + V4.5 functionality and adds:
 - Zambia + Brazil country selector.
@@ -29,6 +29,8 @@ V5.0 restores/preserves the V4.4 + V4.5 functionality and adds:
 - Facility comparison bar charts, parent-area/facility summary statistics and clearer district/facility interpretation.
 - Expanded documentation for national geography and REACH pilot facility coverage.
 - V13 adds a decision-centred landing page, a clear forecast-to-action journey, stronger visual hierarchy, compact source architecture, cascading selection context, and GitHub architecture/design documentation while preserving all V12 forecast, facility, verification and export functionality.
+- V14 adds explicit forecast-valid space-time context and cascading day/week/month facility views.
+- V15 adds Brazil-specific label de-cluttering and municipality-boundary coordinate quality control so invalid offshore/out-of-boundary facility points do not drive maps or interpolation.
 
 Scientific boundary:
 Compound scores are screening indices unless explicitly described as a forecast
@@ -635,6 +637,84 @@ def _one_flag(value):
         return str(value).strip().casefold() in {"sim","yes","true","1"}
 
 
+@st.cache_data(show_spinner=False)
+def _brazil_municipality_geometry(region_code):
+    """Return the bundled municipality geometry for coordinate QA."""
+    code = re.sub(r"\D", "", str(region_code))
+    try:
+        gj = json.loads(BRAZIL_GEOJSON.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    for feat in gj.get("features", []):
+        props = feat.get("properties", {}) or {}
+        if re.sub(r"\D", "", str(props.get("REGION_CODE", ""))) == code:
+            return feat.get("geometry")
+    return None
+
+def _point_in_ring(lon, lat, ring):
+    if not ring or len(ring) < 3:
+        return False
+    inside = False
+    j = len(ring) - 1
+    for i in range(len(ring)):
+        xi, yi = ring[i][0], ring[i][1]
+        xj, yj = ring[j][0], ring[j][1]
+        # Ray casting; tiny epsilon prevents division instability on horizontal edges.
+        intersects = ((yi > lat) != (yj > lat)) and (lon < (xj-xi)*(lat-yi)/((yj-yi) or 1e-15) + xi)
+        if intersects:
+            inside = not inside
+        j = i
+    return inside
+
+def _point_in_polygon_coords(lon, lat, poly_coords):
+    if not poly_coords:
+        return False
+    if not _point_in_ring(lon, lat, poly_coords[0]):
+        return False
+    # Holes are excluded.
+    for hole in poly_coords[1:]:
+        if _point_in_ring(lon, lat, hole):
+            return False
+    return True
+
+def _point_in_geometry(lon, lat, geometry):
+    if not geometry:
+        return True  # fail open if the bundled boundary cannot be read
+    gtype = geometry.get("type")
+    coords = geometry.get("coordinates", [])
+    if gtype == "Polygon":
+        return _point_in_polygon_coords(lon, lat, coords)
+    if gtype == "MultiPolygon":
+        return any(_point_in_polygon_coords(lon, lat, poly) for poly in coords)
+    return True
+
+def _qc_brazil_facility_coordinates(df, region_code, municipality_name):
+    """Remove implausible CNES coordinates outside the selected municipality.
+
+    Coordinates are never guessed or silently moved. Records outside the official bundled
+    municipality geometry are flagged and excluded from spatial forecasting/interpolation.
+    This prevents offshore or wrong-municipality points from distorting the facility surface.
+    """
+    if df is None or df.empty:
+        return df, 0
+    geom = _brazil_municipality_geometry(region_code)
+    if geom is None:
+        out = df.copy()
+        out["CoordinateQC"] = "Boundary QA unavailable"
+        return out, 0
+    out = df.copy()
+    inside=[]
+    for r in out.itertuples():
+        try:
+            ok = _point_in_geometry(float(r.rep_lon), float(r.rep_lat), geom)
+        except Exception:
+            ok = False
+        inside.append(bool(ok))
+    out["CoordinateQC"] = ["Inside municipality boundary" if x else "Excluded: outside municipality boundary" for x in inside]
+    removed = int((~pd.Series(inside, index=out.index)).sum())
+    out = out.loc[pd.Series(inside, index=out.index)].copy()
+    return out.reset_index(drop=True), removed
+
 @st.cache_data(ttl=86400, show_spinner=False)
 def brazil_facilities_online(region_code, municipality_name):
     code = re.sub(r"\D", "", str(region_code))
@@ -706,7 +786,13 @@ def brazil_facilities_online(region_code, municipality_name):
     out["REGION_NAME"] = out["FacilityName"]
     out["ADMIN1"] = out["ParentArea"]
     out = out.drop_duplicates(subset=["FacilityID"]).reset_index(drop=True)
-    return out, "/".join(sorted(set(statuses))) if statuses else "online"
+    out, excluded_qc = _qc_brazil_facility_coordinates(out, region_code, municipality_name)
+    registry_status = "/".join(sorted(set(statuses))) if statuses else "online"
+    if excluded_qc:
+        registry_status += f" · coordinate QA: {excluded_qc} out-of-boundary record(s) excluded"
+    else:
+        registry_status += " · coordinate QA: all mapped records inside municipality boundary"
+    return out, registry_status
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
@@ -928,12 +1014,17 @@ def facility_contour_gradient_figure(df, value_col, title, unit, selected_code=N
         df["FacilityName"].astype(str),
         vals.map(lambda v:"—" if pd.isna(v) else f"{v:.{decimals}f} {unit}")
     ],axis=1)
+    # Dense Brazil pilot registries become unreadable when every facility name is printed.
+    # Keep all names on hover and show only the selected facility label in Brazil. Zambia
+    # retains direct labels because the pilot facility sets are small enough to read.
+    is_brazil = "Country" in df.columns and df["Country"].astype(str).str.casefold().eq("brazil").any()
     positions=["top center","bottom center","middle right","middle left"]
     text_positions=[positions[i % len(positions)] for i in range(len(df))]
     label_size=10 if len(df)<=35 else (9 if len(df)<=70 else 8)
+    base_text = ["" for _ in range(len(df))] if is_brazil else df["FacilityName"].astype(str).tolist()
     fig.add_trace(go.Scatter(
         x=df["rep_lon"],y=df["rep_lat"],mode="markers+text",
-        text=df["FacilityName"].astype(str),textposition=text_positions,
+        text=base_text,textposition=text_positions,
         textfont=dict(size=label_size,color="#111827",family="Arial"),
         marker=dict(size=8,color=vals,colorscale=scale,cmin=zmin,cmax=zmax,opacity=.96,
                     line=dict(width=1.0,color="#FFFFFF"),showscale=False),
@@ -1259,6 +1350,90 @@ def risk_color(label):
         if lab==label:return col
     return "#64748B"
 
+
+
+
+def health_impact_outlook(hazard,horizon,mode,selected_value,map_values,facility_values=None):
+    """Transparent forecast-to-health screening layer.
+
+    This deliberately does not predict disease cases or service counts. It converts the
+    selected climate/hydrological signal into an operational screening class using the
+    selected area's position within the current mapped forecast distribution (or a
+    probability value when the dashboard is already in probability mode).
+    """
+    mv=pd.to_numeric(pd.Series(map_values),errors="coerce").dropna()
+    fv=pd.to_numeric(pd.Series(facility_values if facility_values is not None else []),errors="coerce").dropna()
+    if not np.isfinite(selected_value):
+        score=np.nan
+    elif str(mode).lower().find("prob")>=0 or str(mode).lower().find("risk")>=0:
+        score=float(np.clip(selected_value,0,100))
+    elif len(mv)>=4:
+        # Higher heat/rain/discharge/compound values imply greater hazard. For dry anomaly,
+        # more-negative values imply a stronger dry signal, so reverse the percentile.
+        if hazard=="Drought / dry anomaly":
+            score=float(100.0*(mv>=selected_value).mean())
+        else:
+            score=float(100.0*(mv<=selected_value).mean())
+    else:
+        score=np.nan
+    if not np.isfinite(score):
+        level="Data unavailable"; action="Check the forecast data connection before interpreting health implications."
+    elif score < 50:
+        level="Routine"; action="No elevated climate-linked operational signal is identified from this forecast. Continue routine services and normal surveillance."
+    elif score < 75:
+        level="Watch"; action="Review local access, staffing, power/WASH and referral conditions; keep routine services running while watching for deterioration."
+    elif score < 90:
+        level="Prepare"; action="Prepare continuity measures: check routes and referrals, critical stocks, power/WASH, staffing and outreach schedules."
+    else:
+        level="High concern"; action="Prioritise continuity planning for exposed facilities and populations and verify local warnings, access constraints and readiness before action."
+
+    pathways={
+      "Heatwave": {
+        "population":"Heat exposure can increase heat illness, dehydration and cardiorespiratory stress, especially among older people, infants, pregnant people, outdoor workers and people with chronic illness.",
+        "system":"High heat can increase care demand and can affect staff comfort, medicine/cold-chain conditions, power demand and service continuity.",
+        "mch":"For maternal and child health, check safe access, waiting conditions, hydration, outreach schedules, referral transport and continuity of ANC/PNC, delivery and immunisation services.",
+        "wash":"No specific WASH-disease outbreak is inferred from temperature alone. Continue routine surveillance and use local epidemiological data before making a disease claim."},
+      "Flood – rainfall": {
+        "population":"Heavy rainfall can increase injury, displacement and exposure to contaminated water where flooding occurs. Rainfall itself is a precursor; it is not flood depth.",
+        "system":"The main health-system pathway is access disruption: roads/crossings, ambulance or boat referral, outreach, supply delivery, power/WASH and facility functionality.",
+        "mch":"Check continuity of ANC/PNC, institutional delivery, immunisation and emergency referral where travel or facility access could be disrupted.",
+        "wash":"Flooding can elevate diarrhoeal/WASH risk when water or sanitation systems are affected, but the dashboard does not predict disease cases without surveillance and exposure data."},
+      "Flood – river discharge (GloFAS)": {
+        "population":"High river flow can signal riverine flooding, displacement, injury and isolation of communities when local thresholds are exceeded.",
+        "system":"Check river crossings, road passability, referral routes, outreach, supply chains and facility access.",
+        "mch":"Prioritise referral continuity and access to delivery, ANC/PNC and child health services in potentially isolated areas.",
+        "wash":"River flooding may increase WASH-related exposure, but case occurrence requires epidemiological/surveillance evidence."},
+      "Drought / dry anomaly": {
+        "population":"Persistent dry conditions can affect water availability, food security, heat exposure and population movement.",
+        "system":"Check facility water security, WASH, supply logistics, outreach burden and service demand pressures.",
+        "mch":"Monitor continuity of maternal/child services where water scarcity, transport costs or household constraints may affect care seeking.",
+        "wash":"Dry conditions can alter water quantity and hygiene practices; the dashboard does not infer a disease outbreak from a climate anomaly alone."},
+      "Compound – Flood + Heatwave": {
+        "population":"Concurrent heat and heavy rainfall/flood conditions can combine heat stress with access, displacement and WASH pressures.",
+        "system":"Plan for simultaneous demand pressure and disruption to access, logistics, power/WASH and referral pathways.",
+        "mch":"Protect continuity of time-sensitive maternal and child services and referral transport under combined access and heat pressure.",
+        "wash":"WASH-related risk can rise if flooding compromises water/sanitation; disease cases are not predicted without surveillance data."},
+      "Compound – Drought + Heatwave": {
+        "population":"Combined warm and dry conditions can intensify heat stress, water scarcity and livelihood pressures.",
+        "system":"Check water availability, power/cooling, staffing, outreach and supply resilience.",
+        "mch":"Monitor access and continuity for pregnant people, newborns and children, especially where household water or transport constraints worsen.",
+        "wash":"This is a climate-pressure signal, not a prediction of infection or outbreak."},
+      "Compound – Drought → Flood": {
+        "population":"A dry-to-wet transition can create rapid changes in runoff, access and WASH conditions.",
+        "system":"Prepare for changing logistics and access conditions rather than treating the whole period as one constant hazard state.",
+        "mch":"Review outreach and referral plans across the transition window so time-sensitive services remain available.",
+        "wash":"Disease risk depends on realised flooding, water quality and surveillance; the sequence alone does not predict cases."}
+    }
+    p=pathways.get(hazard,{
+        "population":"Use the selected hazard signal as an exposure screen, not as a direct prediction of illness.",
+        "system":"Check local access and facility readiness before translating the hazard signal into service-disruption risk.",
+        "mch":"Maintain continuity of time-sensitive maternal and child health services.",
+        "wash":"Disease outcomes require epidemiological and surveillance data in addition to the climate forecast."})
+    exposed_facilities=0
+    if len(fv)>=4:
+        q=float(fv.quantile(.8))
+        exposed_facilities=int((fv<=q).sum()) if hazard=="Drought / dry anomaly" else int((fv>=q).sum())
+    return {"score":score,"level":level,"action":action,"pathways":p,"exposed_facilities":exposed_facilities,"facility_n":int(len(fv))}
 
 def period_options(horizon):
     if horizon=="Short range": return ["Next 3 days"]
@@ -3378,7 +3553,8 @@ st.markdown("""
   <div class="journey-step"><b><span class="n">1</span>Monitor</b><span>See the current hazard signal and source status.</span></div>
   <div class="journey-step"><b><span class="n">2</span>Locate</b><span>Move from country → district/municipality → facility.</span></div>
   <div class="journey-step"><b><span class="n">3</span>Compare</b><span>Compare ECMWF, NOAA, ERA5 context and uncertainty.</span></div>
-  <div class="journey-step"><b><span class="n">4</span>Act</b><span>Translate the signal into preparedness and response choices.</span></div>
+  <div class="journey-step"><b><span class="n">4</span>Health impact</b><span>Translate hazard exposure into health-system and population-health pathways.</span></div>
+  <div class="journey-step"><b><span class="n">5</span>Act</b><span>Use the screened signal to support preparedness and continuity decisions.</span></div>
 </div>
 """,unsafe_allow_html=True)
 
@@ -3509,6 +3685,8 @@ if geo_error is None and not regions.empty:
                     facility_choice_code=str(facility_choice)
                     selected_facility=facility_registry[facility_registry["REGION_CODE"].astype(str)==facility_choice_code].iloc[0]
                 st.caption(f"{len(facility_registry):,} mapped facilities available under {focus} · registry status: {facility_status}.")
+                if country == "Brazil":
+                    st.caption("Coordinate quality control: CNES points outside the selected municipality boundary are excluded from the map and gradient rather than moved to an invented location. Facility names remain available on hover; only the selected facility is labelled directly on dense Brazil contour plots.")
             else:
                 st.warning(f"Facility registry is temporarily unavailable for {focus}. The district/municipality forecast remains fully available. ({facility_status})")
         else:
@@ -3730,6 +3908,13 @@ if geo_error is None and not regions.empty:
                     f"median {fmt(fmedian,selected_facility_unit)}, maximum {fmt(fmax,selected_facility_unit)}, range width {fmt(frange,selected_facility_unit)}. "
                     f"Highest current facility signal: {top_facility.FacilityName if top_facility is not None else '—'}."
                 )
+                st.markdown(
+                    f'<div class="summary"><b>How to read this facility view</b><br>'
+                    f'The values above apply to <b>{facility_temporal_label}</b>. The facility table and bars show direct point-specific forecast values. '
+                    f'The gradient below is a visual interpolation between those facility points; it is not the native model grid. '
+                    f'Use the highest or most unusual values as a screening signal, then check access, power, WASH, staffing, supplies and referral readiness before making an operational decision.</div>',
+                    unsafe_allow_html=True,
+                )
                 if drought_physical:
                     st.caption("For a physical drought/dry-anomaly view, more-negative precipitation anomaly indicates a drier signal; the table is therefore ordered from most negative upward.")
                 elif selected_facility_unit!="%":
@@ -3769,9 +3954,9 @@ if geo_error is None and not regions.empty:
                         st.markdown("#### Facility forecast gradient · selected forecast")
                         st.caption(
                             "The coloured field is a fully visible inverse-distance interpolation of the current facility-point forecast values. "
-                            "Dark labelled contours show the forecast value and each mapped point is labelled with the facility name. "
-                            "The title carries the selected forecast-valid date/window so the surface is never interpreted without time. "
-                            "This is a visual interpolation of values sampled at facility coordinates, not the native forecast-model grid."
+                            + ("Dark labelled contours show the forecast value. Brazil keeps facility names on hover and labels only the selected facility to avoid crowding; " if country=="Brazil" else "Dark labelled contours show the forecast value and Zambia labels each mapped facility directly; ")
+                            + "The title carries the selected forecast-valid date/window so the surface is never interpreted without time. "
+                            + "This is a visual interpolation of values sampled at facility coordinates, not the native forecast-model grid."
                         )
                         st.caption(f"**Valid time:** {facility_temporal_label}")
                         _is_diverging = (horizon in ("Sub-seasonal","Seasonal") or "anomaly" in str(mode).lower() or hazard=="Drought / dry anomaly")
@@ -3846,9 +4031,11 @@ if geo_error is None and not regions.empty:
                         if not facility_model_df.empty:
                             st.markdown("#### Facility spatial model comparison")
                             st.caption(
-                                "Each forecast model is sampled at the health-facility coordinates. Facility names are printed beside the points and labelled contour lines show the interpolated value directly on the surface. "
-                                "The coloured surface is an inverse-distance interpolation of facility point forecasts for visual interpretation; it is not the native ECMWF/GFS grid. "
-                                "The bar charts below use the original sampled facility values, not the interpolation."
+                                ("Each forecast model is sampled at the health-facility coordinates. "
+                                 + ("For Brazil, facility names are available on hover and only the selected facility is labelled so dense urban maps remain readable. " if country=="Brazil" else "Facility names are printed beside the points. ")
+                                 + "Labelled contour lines show the interpolated value directly on the surface. "
+                                 + "The coloured surface is an inverse-distance interpolation of facility point forecasts for visual interpretation; it is not the native ECMWF/GFS grid. "
+                                 + "The bar charts below use the original sampled facility values, not the interpolation.")
                             )
                             selrow=facility_model_df[facility_model_df["REGION_CODE"].astype(str)==str(facility_choice_code)] if facility_choice_code else pd.DataFrame()
 
@@ -3995,7 +4182,7 @@ if geo_error is None and not regions.empty:
             point_compare_status_prefetch=f"unavailable: {exc}"
 
     analysis_slug=safe_file_part(analysis_label)
-    tabs=st.tabs(["Time series & uncertainty","River hydrology","Climate drivers","Decision-maker briefing","Documentation · return periods · SDM","Downloads · CSV / Stella","Forecast verification · REACH pilots"])
+    tabs=st.tabs(["Time series & uncertainty","River hydrology","Climate drivers","Health impact outlook","Decision-maker briefing","Documentation · return periods · SDM","Downloads · CSV / Stella","Forecast verification · REACH pilots"])
 
     focus_probs={}
     timing={}
@@ -4464,6 +4651,67 @@ if geo_error is None and not regions.empty:
         st.dataframe(hierarchy,hide_index=True,use_container_width=True)
 
     with tabs[3]:
+        st.markdown(f"### Health impact outlook · {analysis_label}")
+        st.caption(
+            "This page links the selected weather/climate forecast to plausible health-system and population-health pathways. "
+            "It is a transparent screening layer, not a clinical diagnosis, disease-case forecast or validated prediction of service utilisation. "
+            "Health outcomes should be upgraded to quantitative forecasts only after calibration against suitable surveillance/HMIS data."
+        )
+        _mapvals=pd.to_numeric(map_df.get("value",pd.Series(dtype=float)),errors="coerce") if isinstance(map_df,pd.DataFrame) else pd.Series(dtype=float)
+        _facvals=(pd.to_numeric(facility_forecast_df.get("value",pd.Series(dtype=float)),errors="coerce")
+                  if isinstance(facility_forecast_df,pd.DataFrame) else pd.Series(dtype=float))
+        _selected_for_health=selected_facility_value if selected_facility is not None and np.isfinite(selected_facility_value) else fv
+        _ho=health_impact_outlook(hazard,horizon,mode,_selected_for_health,_mapvals,_facvals)
+        _hc=st.columns(5)
+        _hc[0].metric("Forecast horizon",HORIZONS[horizon]["window"])
+        _hc[1].metric("Health-screening status",_ho["level"])
+        _hc[2].metric("Selected location",analysis_label)
+        _hc[3].metric("Hazard signal",fmt(_selected_for_health,selected_facility_unit if selected_facility is not None else unit_for(hazard,horizon,mode)))
+        _hc[4].metric("Higher-signal facilities",f"{_ho['exposed_facilities']} / {_ho['facility_n']}" if _ho['facility_n'] else "—")
+        st.markdown(
+            f'<div class="summary"><b>What this means now</b><br>{_ho["action"]}<br><br>'
+            f'<b>Forecast period:</b> {period_display_label(horizon,period)}. '
+            f'<b>Important:</b> “Routine” means no elevated <i>forecast-linked</i> signal in this screen; it does not mean that no illness, outbreak or service problem can occur.</div>',
+            unsafe_allow_html=True,
+        )
+        h1,h2=st.columns(2,gap="large")
+        with h1:
+            st.markdown("#### Health-system access & continuity")
+            st.write(_ho["pathways"]["system"])
+            st.markdown("#### Maternal & child health services")
+            st.write(_ho["pathways"]["mch"])
+        with h2:
+            st.markdown("#### General population health")
+            st.write(_ho["pathways"]["population"])
+            st.markdown("#### WASH / infectious-disease pathway")
+            st.write(_ho["pathways"]["wash"])
+        st.markdown("#### How the health link is calculated")
+        st.write(
+            "The current health-screening status uses the selected forecast signal and its position within the mapped forecast distribution, "
+            "then applies hazard-specific exposure and service-continuity pathways. It does **not** infer case numbers. "
+            "The next analytical step is to estimate and validate hazard–health response functions using historical HMIS/surveillance data, "
+            "then use those calibrated models to forecast outcomes with uncertainty."
+        )
+        if country=="Zambia" and focus in ("Senanga","Sinazongwe"):
+            st.markdown("#### Historical health-service context · uploaded REACH HMIS")
+            st.caption(
+                "The uploaded district-month HMIS series can be used as historical outcome/context data for model development. "
+                "It is not a live facility-level feed and is therefore not presented as a real-time outcome forecast."
+            )
+            render_pilot_hmis_context(focus)
+        elif country=="Brazil":
+            st.markdown("#### Health-data connection status · Brazil")
+            st.info(
+                "The current deployed package has facility registry/geography for Brazil, but no validated live epidemiological or service-utilisation feed is yet connected to this forecast screen. "
+                "A future adapter can connect official Brazilian health datasets and calibrate hazard–health relationships; until then, the dashboard reports pathways and preparedness implications rather than invented disease counts."
+            )
+        st.markdown("#### Recommended analytical architecture")
+        st.markdown(
+            "**Forecast hazard → population/facility exposure → access/readiness mediators → health-service utilisation/continuity → population-health outcomes.** "
+            "Keep each layer explicit so users can see which outputs are directly observed, forecast, modelled or only screened."
+        )
+
+    with tabs[4]:
         st.markdown("### Decision-maker briefing")
         if map_df.empty:
             base_summary="Spatial forecast unavailable."
@@ -4551,7 +4799,7 @@ if geo_error is None and not regions.empty:
             st.download_button("Download briefing",editable.encode(),file_name=f"REACH_EWS_{country}_{analysis_slug}_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",mime="text/plain",use_container_width=True)
 
 
-    with tabs[4]:
+    with tabs[5]:
         st.markdown("## Documentation, return periods and system-dynamics integration")
         st.caption(
             "This section explains national spatial coverage, the nested district/municipality → facility workflow, data provenance, interpretation, return periods and how forecast information is transferred into the REACH System Dynamics Model (Stella)."
@@ -4560,9 +4808,9 @@ if geo_error is None and not regions.empty:
             """
 ### Portal architecture · one connected decision journey
 
-**Monitor → Locate → Compare → Act → Verify**
+**Monitor → Locate → Compare → Health impact → Act → Verify**
 
-The dashboard is intentionally organised as a cascade rather than a set of independent charts. A selection made at the geography or forecast level is carried into the spatial map, facility drill-down, model comparison, hydrology/climate context, decision briefing, downloads and verification wherever the underlying data support that view. Facility results remain nested under the selected district/municipality.
+The dashboard is intentionally organised as a cascade rather than a set of independent charts. A selection made at the geography or forecast level is carried into the spatial map, facility drill-down, model comparison, hydrology/climate context, **Health impact outlook**, decision briefing, downloads and verification wherever the underlying data support that view. The health-impact layer distinguishes forecast exposure from observed health data and does not claim disease cases or service disruption unless a calibrated health model supports that output. Facility results remain nested under the selected district/municipality.
 
 The backend follows a source-adapter → cache/retry → harmonisation → forecast analytics → decision/output pattern. This keeps source provenance explicit and allows fail-soft use of cached data when an upstream forecast service is temporarily unavailable.
 """
@@ -4581,7 +4829,8 @@ The backend follows a source-adapter → cache/retry → harmonisation → forec
 - The district/municipality value is the model value sampled at the administrative area's representative point in the current workflow.
 - A facility value is the same forecast sampled at the facility's own latitude/longitude.
 - Facility minimum/mean/median/maximum/range statistics refer to the mapped facilities evaluated within the selected parent area; they are **not** the min/max over every grid cell in the district.
-- Labelled contour maps are an inverse-distance visual interpolation of facility point values. The bars and facility table show the direct sampled values.
+- Labelled contour maps are an inverse-distance visual interpolation of facility point values. The bars and facility table show the direct sampled values. Zambia shows facility names directly on the contour when readable; dense Brazil maps keep names on hover and label only the selected facility.
+- Brazil CNES facility coordinates are checked against the selected municipality boundary before spatial analysis. Out-of-boundary/offshore records are excluded rather than moved or guessed, so they cannot distort the gradient.
 - Every forecast map and facility gradient is explicitly time-qualified. Short/medium-range daily values show a UTC valid date (daily Tmax is a daily aggregate; rainfall uses a rolling 3-day accumulation ending on the selected date). Sub-seasonal and seasonal values use weekly/monthly valid windows.
 - The user can switch the facility display between the original window summary and an individual valid day/week/month; that choice cascades to facility metrics, table, bar chart and contour gradient.
 - A model **issue/run time** is shown only when the upstream API exposes it reliably. The current public adapters always show forecast-valid time and do not invent an issuance timestamp.
@@ -5091,7 +5340,7 @@ Historical analogue relationships are supporting context and should not be treat
             st.link_button("Liu et al. 2020", LIU2020_URL, use_container_width=True)
 
 
-    with tabs[5]:
+    with tabs[6]:
         st.markdown("## Download Centre · forecast data and Stella/SDM hand-off")
         st.caption(
             "Download the selected forecast in analysis-ready CSV format. "
@@ -5340,7 +5589,7 @@ Historical analogue relationships are supporting context and should not be treat
         )
 
 
-    with tabs[6]:
+    with tabs[7]:
         st.markdown("## Forecast verification · REACH pilot sites")
         st.caption(
             "Verification remains restricted to Senanga, Sinazongwe, Recife and Palmares. "

@@ -64,6 +64,12 @@ for marker in ["forecast_validity", "format_valid_window", "_facility_time_choic
         raise SystemExit(f"[FAIL] Missing V14 space-time marker: {marker}")
 print("[PASS] Space-time forecast validity and cascading facility time selector are present.")
 
+# V15 Brazil facility-map QA and dense-label checks.
+for marker in ["_qc_brazil_facility_coordinates", "_brazil_municipality_geometry", "CoordinateQC", "out-of-boundary record(s) excluded", "is_brazil", "base_text"]:
+    if marker not in source:
+        raise SystemExit(f"[FAIL] Missing V15 Brazil facility QA marker: {marker}")
+print("[PASS] Brazil municipality-boundary facility QA and dense-label handling are present.")
+
 z_geo = json.loads((ROOT / "zambia_116_districts.geojson").read_text(encoding="utf-8"))
 b_geo = json.loads((ROOT / "brazil_5572_municipalities_simplified.geojson").read_text(encoding="utf-8"))
 z_pts = pd.read_csv(ROOT / "zambia_116_district_forecast_points.csv")
@@ -151,3 +157,11 @@ print("STATIC PREFLIGHT PASSED.")
 print("Next local test:")
 print("  py -m pip install -r requirements.txt")
 print("  py -m streamlit run streamlit_app.py")
+
+
+# V16 health-impact architecture checks
+app_text=(ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+assert "Health impact outlook" in app_text, "Missing Health impact outlook tab"
+assert "health_impact_outlook" in app_text, "Missing forecast-to-health screening helper"
+assert "not a clinical diagnosis" in app_text, "Missing health-screening caveat"
+print("PASS: V16 Health impact outlook and caveats detected")

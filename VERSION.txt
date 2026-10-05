@@ -1,1 +1,5 @@
-V14 · Space–time forecast validity, cascading facility time selector and decision-centred architecture · 03 Oct 2026
+REACH Climate–Health Early Warning Data Portal
+V16 · Forecast-to-Health Impact Outlook
+Date: 05 October 2026
+
+Adds a transparent Health impact outlook that links the selected climate/hydrological forecast to health-system access/continuity, maternal and child health service pathways, general population health and WASH/infectious-disease pathways. The screening layer does not fabricate disease cases or live service-utilisation predictions; quantitative health forecasts require calibration against suitable HMIS/surveillance data.

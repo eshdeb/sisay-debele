@@ -67,3 +67,13 @@ Use multiple views only when each contributes a distinct decision perspective:
 - A time selector must cascade to all facility views that represent the selected physical quantity.
 - Daily, weekly and monthly products retain their native aggregation; do not imply an hourly event time when the source is aggregated.
 - Keep model issue/run time visually distinct from forecast-valid time.
+
+## Dense facility-map rule (V15)
+Facility labels follow a density-aware rule rather than a one-style-fits-all rule.
+
+- **Zambia pilots:** show facility names directly on the contour where they remain readable.
+- **Brazil pilots:** show all facility names on hover; print only the selected facility name on the contour. Keep contour values visible.
+- Do not reduce scientific signal opacity to solve label crowding. The gradient remains fully visible; clutter is solved through selective labelling and hover detail.
+- Selected facilities must remain visually prominent without overwhelming neighbouring points.
+
+The goal is a publication-quality first view with complete detail available through interaction.

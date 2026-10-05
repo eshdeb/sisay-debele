@@ -246,3 +246,25 @@ This is a REACH research decision-support prototype. Official national warning s
 
 ### V12 facility-gradient consistency
 V12 keeps all existing portal content and restores a fully visible facility contour/gradient for the active temperature or precipitation forecast across short-range, medium-range, sub-seasonal and seasonal horizons. Facility names and dark contour-value labels are drawn directly on the surface. The surface is a visual IDW interpolation of forecast values sampled at facility coordinates and must not be interpreted as the native forecast-model grid. V12 also updates Plotly axis-title syntax for current Plotly 6.x compatibility and uses a restrained publication-style palette without fading the scientific gradient surface.
+
+### V15 Brazil facility-map quality control and readability
+V15 is an additive upgrade to V14. It preserves the existing forecast, facility, verification, hydrology, Stella and download workflows while improving dense Brazil pilot views.
+
+- **Brazil contour labels:** Recife and Palmares keep facility points and hover names, but the contour plot does not print every facility name. Only the selected facility is labelled directly. This prevents overlapping text in dense urban areas.
+- **Zambia contour labels:** facility names remain printed directly because the pilot facility sets are small enough to read.
+- **Coordinate QA:** Brazil CNES facility coordinates are checked against the selected municipality polygon before they are used in facility maps, model sampling or IDW interpolation. Records outside the municipality boundary are excluded rather than moved to an invented coordinate.
+- **Time context:** every facility value remains tied to the selected valid day/week/month or forecast window. The map, contour, bars and table cascade from the same selection.
+- **Plain-language interpretation:** the facility section explains what is a direct point forecast, what is an interpolated display surface, and what extra readiness information is needed before treating hazard exposure as operational health-system risk.
+
+The design follows a decision journey: **Monitor → Locate → Time → Compare → Act → Verify**. The visual approach uses restrained scientific colours, strong contrast for labels, hover detail for dense maps and progressive disclosure rather than placing every label on the first view.
+
+## V16 · Health impact outlook
+
+V16 adds a dedicated **Health impact outlook** tab to every forecast selection. It links the selected hazard and valid period to plain-language pathways for:
+
+- health-system access and service continuity;
+- maternal and child health services;
+- general population health; and
+- WASH/infectious-disease concerns.
+
+The status is a transparent screening signal. It does **not** claim predicted disease cases or service-utilisation counts unless a calibrated health model and suitable surveillance/HMIS data support that output. “Routine” means that the selected climate forecast does not show an elevated climate-linked operational signal in this screen; it does not mean that illness, outbreaks or service problems cannot occur.

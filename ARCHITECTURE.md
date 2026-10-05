@@ -147,3 +147,25 @@ For a production service beyond Streamlit-only deployment, the same architecture
 - **monitoring:** source health, request latency, cache freshness, failed jobs and deployment version
 
 The current release deliberately retains a simpler deployment footprint while keeping these boundaries explicit in the code and documentation.
+
+## V15 facility spatial-QA layer
+The Brazil facility pathway now includes a geometry quality gate before model sampling:
+
+`CNES registry → coordinate parsing → municipality-boundary QA → valid facility set → model sampling → bars / map / IDW contour → interpretation`
+
+Out-of-boundary coordinates are excluded, not relocated. This prevents invalid offshore points from changing spatial gradients while preserving provenance. Dense Brazil views use hover-first facility naming; Zambia retains direct labels where the label density is manageable.
+
+## V16 forecast-to-health architecture
+
+The decision cascade is now:
+
+**Monitor → Locate → Compare → Health impact → Act → Verify**
+
+The Health impact outlook sits between physical forecast/exposure and action. It keeps four layers separate:
+
+1. **Forecast hazard** — heat, rainfall/flood, river discharge, drought or compound hazard.
+2. **Exposure** — district/municipality, population context and mapped health facilities.
+3. **Access/readiness mediators** — routes/referrals, power, WASH, staffing, supplies, cold chain, outreach and facility functionality where data are available.
+4. **Health consequences** — service utilisation/continuity and population-health outcomes only when supported by calibrated historical or surveillance data.
+
+The current V16 health-screening status is therefore an operational screening output, not a disease-case forecast. For Zambia pilots, uploaded district-month HMIS data are retained as historical outcome/context data for model development. They are not a live facility-level feed. For Brazil, the current package contains facility registry/geography but no validated live epidemiological or service-utilisation feed; future adapters should connect official health datasets and calibrate hazard–health response functions before numerical outcome forecasts are displayed.

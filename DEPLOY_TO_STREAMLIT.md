@@ -83,3 +83,11 @@ V12 keeps all existing portal content and restores a fully visible facility cont
 ## V14 post-deploy check
 
 After deployment, confirm that the Spatial forecast outlook shows a calendar-valid UTC window and that, in a REACH pilot facility view, the **Facility gradient / bar valid time** selector changes the facility metrics, table, bars and contour gradient together. Check one short/medium-range heat view and one sub-seasonal/seasonal view.
+
+## V15 post-deployment visual checks
+After deployment, verify these views before sharing the URL:
+1. **Brazil → Recife:** no facility-name pile-up on the contour; names appear on hover and the selected facility is labelled.
+2. **Brazil → Recife map:** no obvious offshore facility points are used in the displayed facility layer or gradient. The registry status should mention coordinate QA if records were excluded.
+3. **Brazil → Palmares:** same QA/label behaviour as Recife.
+4. **Zambia → Senanga/Sinazongwe:** direct facility labels remain visible on the contour.
+5. Switch short range, medium range, sub-seasonal and seasonal selections and confirm the valid date/week/month remains visible and cascades to the facility outputs.

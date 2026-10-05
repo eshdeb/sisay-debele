@@ -88,3 +88,21 @@ V12 keeps all existing portal content and restores a fully visible facility cont
 ## Forecast time semantics
 
 The portal records and displays the **forecast-valid calendar interval** derived from the time coordinates returned by the active source. Daily deterministic products are interpreted as UTC-day aggregates; sub-seasonal products as weekly aggregates; seasonal products as monthly aggregates. A model issue/run timestamp is not inferred when the public adapter does not expose it. This avoids presenting a retrieval time as though it were a model initialization time.
+
+## Brazil facility coordinate quality control (V15)
+CNES is the facility registry source for the Brazil pilot drill-down. Registry coordinates are not assumed to be spatially correct simply because they are present. Before spatial forecasting, each mapped facility point is tested against the bundled official municipality geometry used by the dashboard.
+
+- A point **inside the selected municipality boundary** is retained for mapping and facility-level forecast sampling.
+- A point **outside the boundary** is excluded from the spatial map and interpolation so an offshore or wrong-municipality coordinate cannot distort the gradient.
+- The application does **not** invent, snap or silently relocate a facility coordinate. A corrected position should only be introduced when a verified coordinate source is available.
+- The registry status shown in the interface reports when out-of-boundary records have been excluded.
+
+This is a coordinate-quality screen, not a claim that the remaining coordinates are survey-grade positions.
+
+## Health-outcome linkage in V16
+
+The Health impact outlook uses the selected forecast and mapped exposure to generate a transparent preparedness screen. It is not a substitute for epidemiological surveillance.
+
+- **Zambia pilots:** the bundled REACH HMIS context is district-month historical data and can support later calibration of service-utilisation/continuity models. It is not a live facility-level outcome feed.
+- **Brazil:** facility registry/geography are connected, but the current package does not claim a validated live epidemiological/service-utilisation feed. Official Brazilian health datasets should be added through a documented adapter before numerical health-outcome forecasts are presented.
+- Disease-specific outputs such as diarrhoea, dengue/chikungunya or other infectious-disease case forecasts should only be displayed after outcome-specific model calibration and validation.
